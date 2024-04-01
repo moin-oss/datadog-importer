@@ -1,9 +1,9 @@
-import {MyCustomPlugin} from '../../../lib/my-custom-plugin';
+import {DatadogImporter} from '../../../lib/datadog-importer';
 
 describe('lib/my-custom-plugin: ', () => {
-  describe('MyCustomPlugin(): ', () => {
+  describe('DatadogImporter(): ', () => {
     it('has metadata field.', () => {
-      const pluginInstance = MyCustomPlugin({});
+      const pluginInstance = DatadogImporter({});
 
       expect(pluginInstance).toHaveProperty('metadata');
       expect(pluginInstance).toHaveProperty('execute');
@@ -13,7 +13,7 @@ describe('lib/my-custom-plugin: ', () => {
 
     describe('execute(): ', () => {
       it('applies logic on provided inputs array.', async () => {
-        const pluginInstance = MyCustomPlugin({});
+        const pluginInstance = DatadogImporter({});
         const inputs = [{}];
 
         const response = await pluginInstance.execute(inputs, {});

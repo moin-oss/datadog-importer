@@ -1,6 +1,6 @@
 {
-  "name": "if-plugin-template",
-  "description": "Impact Framework plugins template.",
+  "name": "datadog-importer",
+  "description": "Import metrics from datadog",
   "version": "v0.1.0",
   "author": {
     "name": "Green Software Foundation",

@@ -1,10 +1,10 @@
-export type PluginParams = Record<string, any>;
+export type DatadogImporterParams = Record<string, any>;
 
-export type PluginInterface = {
+export type DatadogImporterInterface = {
   execute: (
-    inputs: PluginParams[],
+    inputs: DatadogImporterParams[],
     config?: Record<string, any>
-  ) => Promise<PluginParams[]>;
+  ) => Promise<DatadogImporterParams[]>;
   metadata: {
     kind: string;
   };
