@@ -10,6 +10,7 @@
     "url": "https://github.com/Green-Software-Foundation/if-plugin-template/issues/new?assignees=&labels=feedback&projects=&template=feedback.md&title=Feedback+-+"
   },
   "dependencies": {
+    "@datadog/datadog-api-client": "^1.23.0",
     "typescript": "^5.1.6"
   },
   "devDependencies": {

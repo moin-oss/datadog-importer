@@ -1,0 +1,25 @@
+name: basic-demo
+description:
+tags:
+initialize:
+  plugins:
+    datadog-importer: 
+      path: 'datadog-importer'
+      method: DatadogImporter
+tree:
+  children:
+    child-0:
+      defaults:
+        cpu/thermal-design-power: 100
+      pipeline:
+        - datadog-importer
+      inputs:
+        - timestamp: 2024-03-30T00:00
+          duration: 5
+          cpu/utilization: 20
+        - timestamp: 2024-03-30T00:05
+          duration: 5
+          cpu/utilization: 80
+        - timestamp: 2024-03-30T00:10
+          duration: 5
+          cpu/utilization: 20
