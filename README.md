@@ -6,6 +6,13 @@
 
 Here can be implementation details of the plugin. For example which API is used, transformations and etc.
 
+## Local Config
+```
+export DD_SITE=datadog.hq
+export DD_APP_KEY=<secret>
+export DD_API_KEY=<secret>
+```
+
 ## Usage
 
 To run the `<YOUR-CUSTOM-PLUGIN>`, an instance of `PluginInterface` must be created. Then, the plugin's `execute()` method can be called, passing required arguments to it.
