@@ -6,20 +6,20 @@ initialize:
     datadog-importer: 
       path: 'datadog-importer'
       method: DatadogImporter
+      global-config:
+        instance-id-tag: kube_node
+        location-tag: region
+        instance-type-tag: instance-type
+        cpu-utilization-metric-name: system.cpu.user
 tree:
   children:
     child-0:
-      defaults:
-        cpu/thermal-design-power: 100
       pipeline:
         - datadog-importer
+      config:
+        datadog-importer:
+          time-step: 10
       inputs:
         - timestamp: 2024-03-30T00:00
-          duration: 5
-          cpu/utilization: 20
-        - timestamp: 2024-03-30T00:05
-          duration: 5
-          cpu/utilization: 80
-        - timestamp: 2024-03-30T00:10
-          duration: 5
-          cpu/utilization: 20
+          duration: 60
+          instance-id: ip-10-163-212-35.us-east-2.compute.internal

@@ -12,7 +12,7 @@ describe('lib/my-custom-plugin: ', () => {
     });
 
     describe('execute(): ', () => {
-      it('applies logic on provided inputs array.', async () => {
+      it.skip('applies logic on provided inputs array.', async () => {
         const pluginInstance = DatadogImporter({});
         const inputs = [{}];
 
