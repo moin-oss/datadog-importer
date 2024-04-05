@@ -8,7 +8,7 @@ Here can be implementation details of the plugin. For example which API is used,
 
 ## Local Config
 ```
-export DD_SITE=datadog.hq
+export DD_SITE=datadoghq.com
 export DD_APP_KEY=<secret>
 export DD_API_KEY=<secret>
 ```
