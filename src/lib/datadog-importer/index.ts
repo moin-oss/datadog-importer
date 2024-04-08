@@ -67,14 +67,6 @@ export const DatadogImporter = (
         continue;
       }
 
-      const pointlist = series[0].pointlist || [];
-      if (pointlist.length === 0) {
-        console.log('Points not found');
-        continue;
-      }
-      const point = pointlist[0];
-      const value = point[1];
-
       const parseTag = (tag: string, tagSet: string[]) => {
         for (const pair of tagSet) {
           const [key, value] = pair.split(':', 2);
@@ -87,14 +79,35 @@ export const DatadogImporter = (
 
       const tags = series[0].tagSet || [];
 
-      const output = {
-        ...input,
-        'cpu/utilization': value,
-        location: parseTag(locationTag, tags),
-        'cloud/instance-type': parseTag(instanceTypeTag, tags),
-      };
+      const pointlist = series[0].pointlist || [];
+      if (pointlist.length === 0) {
+        console.log('Points not found');
+        continue;
+      }
 
-      outputs = [...outputs, output];
+      for (let i=0; i<pointlist.length; i++) {
+      // for (const i in pointlist) {
+        const point = pointlist[i];
+        let nextTimeStamp;
+        if (i === pointlist.length-1) {
+          nextTimeStamp = new Date(input.timestamp).getTime() + input.duration*1000;
+        } else {
+          nextTimeStamp = pointlist[i+1][0];
+        }
+        const timestamp = point[0];
+        const value = point[1];
+        
+        const output = {
+          ...input,
+          timestamp: new Date(timestamp).toISOString(),
+          duration: (nextTimeStamp - timestamp)/1000,
+          'cpu/utilization': value,
+          location: parseTag(locationTag, tags),
+          'cloud/instance-type': parseTag(instanceTypeTag, tags),
+        };
+        
+        outputs = [...outputs, output];
+      }
     }
 
     return outputs;
