@@ -6,7 +6,7 @@
 
 Here can be implementation details of the plugin. For example which API is used, transformations and etc.
 
-## Local Config
+## Required Environment Variables
 ```
 export DD_SITE=datadoghq.com
 export DD_APP_KEY=<secret>

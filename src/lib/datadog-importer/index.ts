@@ -85,27 +85,27 @@ export const DatadogImporter = (
         continue;
       }
 
-      for (let i=0; i<pointlist.length; i++) {
-      // for (const i in pointlist) {
+      for (let i = 0; i < pointlist.length; i++) {
         const point = pointlist[i];
         let nextTimeStamp;
-        if (i === pointlist.length-1) {
-          nextTimeStamp = new Date(input.timestamp).getTime() + input.duration*1000;
+        if (i === pointlist.length - 1) {
+          nextTimeStamp =
+            new Date(input.timestamp).getTime() + input.duration * 1000;
         } else {
-          nextTimeStamp = pointlist[i+1][0];
+          nextTimeStamp = pointlist[i + 1][0];
         }
         const timestamp = point[0];
         const value = point[1];
-        
+
         const output = {
           ...input,
           timestamp: new Date(timestamp).toISOString(),
-          duration: (nextTimeStamp - timestamp)/1000,
+          duration: (nextTimeStamp - timestamp) / 1000,
           'cpu/utilization': value,
           location: parseTag(locationTag, tags),
           'cloud/instance-type': parseTag(instanceTypeTag, tags),
         };
-        
+
         outputs = [...outputs, output];
       }
     }
