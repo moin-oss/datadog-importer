@@ -7,10 +7,10 @@ initialize:
       path: 'datadog-importer'
       method: DatadogImporter
       global-config:
-        instance-id-tag: kube_node
-        location-tag: region
-        instance-type-tag: instance-type
-        cpu-utilization-metric-name: system.cpu.user
+        instance-id-tag: kube_node_address
+        location-tag: aws_region
+        instance-type-tag: aws_instance-type
+        cpu-utilization-metric-name: system.cpu.utilization.pct
 tree:
   children:
     child-0:
@@ -19,4 +19,4 @@ tree:
       inputs:
         - timestamp: 2024-03-30T00:00
           duration: 120
-          instance-id: ip-10-163-212-35.us-east-2.compute.internal
+          instance-id: ip-1-2-3-4.test.node.address
