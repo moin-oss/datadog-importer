@@ -4,6 +4,7 @@ import {
   DatadogImporterParams,
 } from '../types/interface';
 import {client, v1} from '@datadog/datadog-api-client';
+import {ApiException} from '@datadog/datadog-api-client/dist/packages/datadog-api-client-common';
 
 export const DatadogImporter = (
   globalConfig: DatadogImporterGlobalConfig
@@ -30,13 +31,17 @@ export const DatadogImporter = (
       console.log('Global Config is required');
       return inputs;
     }
-    const instanceIdTag = globalConfig['instance-id-tag'];
-    const locationTag = globalConfig['location-tag'];
-    const instanceTypeTag = globalConfig['instance-type-tag'];
-    const cpuUtilizationMetricName =
-      globalConfig['cpu-utilization-metric-name'];
+    const instanceIdTag: string = globalConfig['instance-id-tag'];
+    const locationTag: string = globalConfig['location-tag'];
+    const instanceTypeTag: string = globalConfig['instance-type-tag'];
+    const metric: string = globalConfig['metric'];
+    const outputMetricName: string = globalConfig['output-metric-name'];
 
     config;
+
+    if (!(await determineIfMetricExists(apiInstance, metric))) {
+      return inputs;
+    }
 
     for await (const input of inputs) {
       // TODO time step as config
@@ -47,7 +52,7 @@ export const DatadogImporter = (
       const params: v1.MetricsApiQueryMetricsRequest = {
         from: startUnixTime,
         to: startUnixTime + input.duration,
-        query: `avg:${cpuUtilizationMetricName}{${instanceIdTag}:${input['instance-id']}}by{${instanceTypeTag},${locationTag}}`,
+        query: `avg:${metric}{${instanceIdTag}:${input['instance-id']}}by{${instanceTypeTag},${locationTag}}`,
       };
 
       const data = (await apiInstance
@@ -97,14 +102,24 @@ export const DatadogImporter = (
         const timestamp = point[0];
         const value = point[1];
 
-        const output = {
+        const output: OutputObject = {
           ...input,
           timestamp: new Date(timestamp).toISOString(),
           duration: (nextTimeStamp - timestamp) / 1000,
-          'cpu/utilization': value,
           location: parseTag(locationTag, tags),
           'cloud/instance-type': parseTag(instanceTypeTag, tags),
         };
+
+        if (outputMetricName in output) {
+          console.error(
+            `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
+              output
+            )}`
+          );
+          break;
+        } else {
+          output[outputMetricName] = value;
+        }
 
         outputs = [...outputs, output];
       }
@@ -112,6 +127,51 @@ export const DatadogImporter = (
 
     return outputs;
   };
+
+  /**
+   * Calls Datadog to determine if metric exists
+   * @param apiInstance Datadog metrics api instance
+   * @param metric metric name in question
+   * @returns true if metric exists, false if not or could not be determined
+   */
+  async function determineIfMetricExists(
+    apiInstance: v1.MetricsApi,
+    metric: string
+  ): Promise<boolean> {
+    const params: v1.MetricsApiGetMetricMetadataRequest = {
+      metricName: metric,
+    };
+
+    try {
+      await apiInstance.getMetricMetadata(params);
+      return true; // If the request is successful, the metric exists
+    } catch (error) {
+      if (error instanceof ApiException) {
+        if (error.code === 404) {
+          console.error(`Metric ${metric} does not exist`);
+        } else {
+          console.error(
+            `Error determining if metric ${metric} exists: ${error.body.errors.join(
+              ', '
+            )}`
+          );
+        }
+      } else {
+        console.error(
+          `Unexpected error determining if metric ${metric} exists: ${error}`
+        );
+      }
+      return false;
+    }
+  }
+
+  interface OutputObject {
+    [key: string]: any;
+    timestamp: string;
+    duration: number;
+    location: string;
+    'cloud/instance-type': string;
+  }
 
   return {
     metadata,
