@@ -44,7 +44,14 @@ export const DatadogImporter = (
 
     if (metricList.length !== outputMetricNameList.length) {
       console.error(
-        'Validation Error: metrics and output-metrics-names length must be equal.'
+        'Input Validation Error: metrics and output-metric-names length must be equal.'
+      );
+      return inputs;
+    }
+
+    if (hasDuplicates(outputMetricNameList)) {
+      console.error(
+        'Input Validation Error: output-metric-names contains duplicate values.'
       );
       return inputs;
     }
@@ -188,6 +195,10 @@ export const DatadogImporter = (
       }
     }
     return '';
+  }
+
+  function hasDuplicates(array: string[]) {
+    return new Set(array).size !== array.length;
   }
 
   return {
