@@ -19,4 +19,5 @@ tree:
       inputs:
         - timestamp: 2024-03-30T00:00
           duration: 120
+          duration-rollup: 5
           instance-id: ip-1-2-3-4.test.node.address

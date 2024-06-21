@@ -73,7 +73,7 @@ export const DatadogImporter = (
         const params: v1.MetricsApiQueryMetricsRequest = {
           from: startUnixTime,
           to: startUnixTime + input.duration,
-          query: `avg:${metric}{${instanceIdTag}:${input['instance-id']}}by{${instanceTypeTag},${locationTag}}`,
+          query: `avg:${metric}{${instanceIdTag}:${input['instance-id']}}by{${instanceTypeTag},${locationTag}}.rollup(${input['duration-rollup']})`,
         };
 
         const data = (await apiInstance
