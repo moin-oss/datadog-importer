@@ -10,3 +10,4 @@ yarn-error.log
 build
 coverage
 .env
+test.y*ml
