@@ -78,10 +78,8 @@ export const DatadogImporter = (
     }
 
     for await (const input of inputs) {
-      // TODO time step as config
       const start = new Date(input.timestamp);
       const startUnixTime: number = Math.round(start.getTime() / 1000);
-      console.log(start.toISOString());
 
       for (let i = 0; i < metricList.length; i++) {
         const metric = metricList[i];
@@ -102,61 +100,61 @@ export const DatadogImporter = (
             console.error(error);
           })) as v1.MetricsQueryResponse;
 
-        // TODO average over time series
-        // TODO handle multiple series
         const series = data.series || [];
         if (series.length === 0) {
           console.log('Series not found');
           continue;
         }
 
-        const returnedTags = series[0].tagSet || [];
+        for (const s of series) {
+          const returnedTags = s.tagSet || [];
 
-        const pointlist = series[0].pointlist || [];
-        if (pointlist.length === 0) {
-          console.log('Points not found');
-          continue;
-        }
-
-        for (let j = 0; j < pointlist.length; j++) {
-          const point = pointlist[j];
-          let nextTimeStamp;
-          if (j === pointlist.length - 1) {
-            nextTimeStamp =
-              new Date(input.timestamp).getTime() + input.duration * 1000;
-          } else {
-            nextTimeStamp = pointlist[j + 1][0];
-          }
-          const timestamp = point[0];
-          const value = point[1];
-
-          let output: DatadogImporterParams;
-          if (i === 0) {
-            output = {
-              ...input,
-              timestamp: new Date(timestamp).toISOString(),
-              duration: (nextTimeStamp - timestamp) / 1000,
-            };
-            tagList.forEach((tag, k) => {
-              output[outputTagNamesList[k]] = parseTag(tag, returnedTags);
-            });
-          } else {
-            output = outputs[j];
+          const pointlist = s.pointlist || [];
+          if (pointlist.length === 0) {
+            console.log('Points not found');
+            continue;
           }
 
-          if (outputMetricName in output) {
-            console.error(
-              `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
-                output
-              )}`
-            );
-            break;
-          } else {
-            output[outputMetricName] = value;
-          }
+          for (let j = 0; j < pointlist.length; j++) {
+            const point = pointlist[j];
+            let nextTimeStamp;
+            if (j === pointlist.length - 1) {
+              nextTimeStamp =
+                new Date(input.timestamp).getTime() + input.duration * 1000;
+            } else {
+              nextTimeStamp = pointlist[j + 1][0];
+            }
+            const timestamp = point[0];
+            const value = point[1];
 
-          if (i === 0) {
-            outputs = [...outputs, output];
+            let output: DatadogImporterParams;
+            if (i === 0) {
+              output = {
+                ...input,
+                timestamp: new Date(timestamp).toISOString(),
+                duration: (nextTimeStamp - timestamp) / 1000,
+              };
+              tagList.forEach((tag, k) => {
+                output[outputTagNamesList[k]] = parseTag(tag, returnedTags);
+              });
+            } else {
+              output = outputs[j];
+            }
+
+            if (outputMetricName in output) {
+              console.error(
+                `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
+                  output
+                )}`
+              );
+              break;
+            } else {
+              output[outputMetricName] = value;
+            }
+
+            if (i === 0) {
+              outputs = [...outputs, output];
+            }
           }
         }
       }

@@ -140,7 +140,7 @@ describe('DatadogImporter(): ', () => {
       );
     });
 
-    it('should execute and return transformed data', async () => {
+    it('should collect multiple metrics and return transformed data', async () => {
       const metricToSeriesDataMap: Map<string, any> = new Map();
 
       const seriesDataMetric1 = [
@@ -190,6 +190,76 @@ describe('DatadogImporter(): ', () => {
           outputTag2: 'tag2value',
           outputMetric1: 0.7,
           outputMetric2: 0.14,
+        },
+      ]);
+    });
+
+    it('should collect mulitiple sets of tag values and return transformed data', async () => {
+      const metricToSeriesDataMap: Map<string, any> = new Map();
+      metricToSeriesDataMap.set('metric1', [
+        {
+          tagSet: [
+            'instance-id:i-123456',
+            'tag1:tag1value1',
+            'tag2:tag2value1',
+          ],
+          pointlist: [
+            [1717995600000, 1],
+            [1717995610000, 0.7],
+          ],
+        },
+        {
+          tagSet: [
+            'instance-id:i-123456',
+            'tag1:tag1value2',
+            'tag2:tag2value2',
+          ],
+          pointlist: [
+            [1717995600000, 0.25],
+            [1717995610000, 0.14],
+          ],
+        },
+      ]);
+
+      const apiInstance = createMockApiInstance(metricToSeriesDataMap);
+      (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
+
+      const importer = DatadogImporter(globalConfig);
+      const result = await importer.execute(validInput);
+
+      expect(result).toEqual([
+        {
+          'instance-id': 'i-123456',
+          timestamp: '2024-06-10T05:00:00.000Z',
+          duration: 10,
+          outputTag1: 'tag1value1',
+          outputTag2: 'tag2value1',
+          outputMetric1: 1,
+        },
+        {
+          'instance-id': 'i-123456',
+          timestamp: '2024-06-10T05:00:10.000Z',
+          duration: 10,
+          outputTag1: 'tag1value1',
+          outputTag2: 'tag2value1',
+          outputMetric1: 0.7,
+        },
+        // Back to the start time, with the new set of tag values
+        {
+          'instance-id': 'i-123456',
+          timestamp: '2024-06-10T05:00:00.000Z',
+          duration: 10,
+          outputTag1: 'tag1value2',
+          outputTag2: 'tag2value2',
+          outputMetric1: 0.25,
+        },
+        {
+          'instance-id': 'i-123456',
+          timestamp: '2024-06-10T05:00:10.000Z',
+          duration: 10,
+          outputTag1: 'tag1value2',
+          outputTag2: 'tag2value2',
+          outputMetric1: 0.14,
         },
       ]);
     });
