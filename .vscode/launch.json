@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "type": "node",
+          "name": "vscode-jest-tests",
+          "request": "launch",
+          "console": "integratedTerminal",
+          "internalConsoleOptions": "neverOpen",
+          "program": "${workspaceFolder}/node_modules/.bin/jest",
+          "cwd": "${workspaceFolder}",
+          "args": [
+            "--verbose"
+          ]
+      }
+  ]
+}
