@@ -2,6 +2,10 @@ import {DatadogImporter} from '../../../lib';
 import {v1} from '@datadog/datadog-api-client';
 import {ApiException} from '@datadog/datadog-api-client/dist/packages/datadog-api-client-common';
 
+console.log = jest.fn();
+console.warn = jest.fn();
+console.error = jest.fn();
+
 jest.mock('@datadog/datadog-api-client', () => ({
   client: {
     createConfiguration: jest.fn(),
@@ -36,10 +40,10 @@ describe('DatadogImporter(): ', () => {
 
   const globalConfig = {
     'instance-id-tag': 'app',
-    'location-tag': 'region',
-    'instance-type-tag': 'instance-type',
     metrics: 'metric1,metric2',
     'output-metric-names': 'outputMetric1,outputMetric2',
+    tags: 'tag1,tag2',
+    'output-tag-names': 'outputTag1,outputTag2',
   };
 
   const validInput = [
@@ -51,6 +55,10 @@ describe('DatadogImporter(): ', () => {
   ];
 
   describe('execute(): ', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
     it('has metadata field.', () => {
       const pluginInstance = DatadogImporter({});
 
@@ -60,7 +68,7 @@ describe('DatadogImporter(): ', () => {
       expect(typeof pluginInstance.execute).toBe('function');
     });
 
-    it('should return the input if output-metric-names contains duplicate values', async () => {
+    it('should log error and return the input if output-metric-names contains duplicate values', async () => {
       const invalidConfig = {
         ...globalConfig,
         'output-metric-names': 'outputMetric1,outputMetric1',
@@ -68,9 +76,12 @@ describe('DatadogImporter(): ', () => {
       const importer = DatadogImporter(invalidConfig);
       const result = await importer.execute(validInput);
       expect(result).toEqual(validInput);
+      expect(console.error).toHaveBeenCalledWith(
+        'Input Validation Error: output-metric-names contains duplicate values.'
+      );
     });
 
-    it('should return the input if metrics and output-metric-names length are not equal', async () => {
+    it('should log error and return the input if metrics and output-metric-names length are not equal', async () => {
       const invalidConfig = {
         ...globalConfig,
         'output-metric-names': 'outputMetric1',
@@ -78,9 +89,12 @@ describe('DatadogImporter(): ', () => {
       const importer = DatadogImporter(invalidConfig);
       const result = await importer.execute(validInput);
       expect(result).toEqual(validInput);
+      expect(console.error).toHaveBeenCalledWith(
+        'Input Validation Error: metrics and output-metric-names length must be equal.'
+      );
     });
 
-    it('should return the input if a metric does not exist', async () => {
+    it('should log error and return the input if a metric does not exist', async () => {
       const createMockApiInstance = () => ({
         getMetricMetadata: jest
           .fn()
@@ -93,6 +107,37 @@ describe('DatadogImporter(): ', () => {
       const importer = DatadogImporter(globalConfig);
       const result = await importer.execute(validInput);
       expect(result).toEqual(validInput);
+      expect(console.error).toHaveBeenCalledWith(
+        'Metric metric1 does not exist'
+      );
+    });
+
+    it('should log error and return the input if output-tag-names contains duplicate values', async () => {
+      const invalidConfig = {
+        ...globalConfig,
+        'output-tag-names': 'outputTag1,outputTag1',
+      };
+
+      const importer = DatadogImporter(invalidConfig);
+      const result = await importer.execute(validInput);
+      expect(result).toEqual(validInput);
+      expect(console.error).toHaveBeenCalledWith(
+        'Input Validation Error: output-tag-names contains duplicate values.'
+      );
+    });
+
+    it('should log error and return the input if tags and output-tag-names length are not equal', async () => {
+      const invalidConfig = {
+        ...globalConfig,
+        'output-tag-names': 'outputTag1',
+      };
+
+      const importer = DatadogImporter(invalidConfig);
+      const result = await importer.execute(validInput);
+      expect(result).toEqual(validInput);
+      expect(console.error).toHaveBeenCalledWith(
+        'Input Validation Error: tags and output-tag-names length must be equal.'
+      );
     });
 
     it('should execute and return transformed data', async () => {
@@ -100,11 +145,7 @@ describe('DatadogImporter(): ', () => {
 
       const seriesDataMetric1 = [
         {
-          tagSet: [
-            'instance-id:i-123456',
-            'region:us-central',
-            'instance-type:t2.micro',
-          ],
+          tagSet: ['instance-id:i-123456', 'tag1:tag1value', 'tag2:tag2value'],
           pointlist: [
             [1717995600000, 1],
             [1717995610000, 0.7],
@@ -114,11 +155,7 @@ describe('DatadogImporter(): ', () => {
 
       const seriesDataMetric2 = [
         {
-          tagSet: [
-            'instance-id:i-123456',
-            'region:us-central',
-            'instance-type:t2.micro',
-          ],
+          tagSet: ['instance-id:i-123456', 'tag1:tag1value', 'tag2:tag2value'],
           pointlist: [
             [1717995600000, 0.25],
             [1717995610000, 0.14],
@@ -140,8 +177,8 @@ describe('DatadogImporter(): ', () => {
           'instance-id': 'i-123456',
           timestamp: '2024-06-10T05:00:00.000Z',
           duration: 10,
-          location: 'us-central',
-          'cloud/instance-type': 't2.micro',
+          outputTag1: 'tag1value',
+          outputTag2: 'tag2value',
           outputMetric1: 1,
           outputMetric2: 0.25,
         },
@@ -149,8 +186,8 @@ describe('DatadogImporter(): ', () => {
           'instance-id': 'i-123456',
           timestamp: '2024-06-10T05:00:10.000Z',
           duration: 10,
-          location: 'us-central',
-          'cloud/instance-type': 't2.micro',
+          outputTag1: 'tag1value',
+          outputTag2: 'tag2value',
           outputMetric1: 0.7,
           outputMetric2: 0.14,
         },

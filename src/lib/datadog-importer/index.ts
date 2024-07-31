@@ -32,15 +32,18 @@ export const DatadogImporter = (
       return inputs;
     }
     const instanceIdTag: string = globalConfig['instance-id-tag'];
-    const locationTag: string = globalConfig['location-tag'];
-    const instanceTypeTag: string = globalConfig['instance-type-tag'];
+
     const metrics: string = globalConfig['metrics'];
     const outputMetricNames: string = globalConfig['output-metric-names'];
+    const tags: string = globalConfig['tags'];
+    const outputTagNames: string = globalConfig['output-tag-names'];
 
     config;
 
     const metricList = metrics.split(',');
     const outputMetricNameList = outputMetricNames.split(',');
+    const tagList = tags.split(',');
+    const outputTagNamesList = outputTagNames.split(',');
 
     if (metricList.length !== outputMetricNameList.length) {
       console.error(
@@ -52,6 +55,20 @@ export const DatadogImporter = (
     if (hasDuplicates(outputMetricNameList)) {
       console.error(
         'Input Validation Error: output-metric-names contains duplicate values.'
+      );
+      return inputs;
+    }
+
+    if (tagList.length !== outputTagNamesList.length) {
+      console.error(
+        'Input Validation Error: tags and output-tag-names length must be equal.'
+      );
+      return inputs;
+    }
+
+    if (hasDuplicates(outputTagNamesList)) {
+      console.error(
+        'Input Validation Error: output-tag-names contains duplicate values.'
       );
       return inputs;
     }
@@ -73,7 +90,7 @@ export const DatadogImporter = (
         const params: v1.MetricsApiQueryMetricsRequest = {
           from: startUnixTime,
           to: startUnixTime + input.duration,
-          query: `avg:${metric}{${instanceIdTag}:${input['instance-id']}}by{${instanceTypeTag},${locationTag}}.rollup(${input['duration-rollup']})`,
+          query: `avg:${metric}{${instanceIdTag}:${input['instance-id']}}by{${tags}}.rollup(${input['duration-rollup']})`,
         };
 
         const data = (await apiInstance
@@ -93,7 +110,7 @@ export const DatadogImporter = (
           continue;
         }
 
-        const tags = series[0].tagSet || [];
+        const returnedTags = series[0].tagSet || [];
 
         const pointlist = series[0].pointlist || [];
         if (pointlist.length === 0) {
@@ -119,9 +136,10 @@ export const DatadogImporter = (
               ...input,
               timestamp: new Date(timestamp).toISOString(),
               duration: (nextTimeStamp - timestamp) / 1000,
-              location: parseTag(locationTag, tags),
-              'cloud/instance-type': parseTag(instanceTypeTag, tags),
             };
+            tagList.forEach((tag, k) => {
+              output[outputTagNamesList[k]] = parseTag(tag, returnedTags);
+            });
           } else {
             output = outputs[j];
           }
