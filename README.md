@@ -23,7 +23,7 @@ Refer to [this documentation](https://docs.datadoghq.com/account_management/api-
 ### Config
 
 #### Global
-* `instance-id-tag`: The key of the tag in Datadog that is used to uniquely identify the unit represented by each input
+* `id-tag`: The key of the tag in Datadog that is used to uniquely identify the unit represented by each input
 * `metrics`: Comma separated list of metrics to fetch for each input. Each item in the list is the metric name in Datadog
 * `output-metric-names`: Comma separated list of metric names to use in the output. Each item in the list corresponds to the item in `metrics` at the same index. This allows users to rename metrics when subsequent stages expect different names than the ones used in Datadog
 * `tags`: Comma separated list of tags to add to each output. Each item is the key of a tag in Datadog.
@@ -36,7 +36,7 @@ There is no node-level configuration.
 * `timestamp`: An ISO8601 timestamp indicating the start time of the observation period
 * `duration`: Number of seconds in the observation period. We compute the end time by adding this number to `timestamp`
 * `duration-rollup`: Number of seconds in each output slice. We break each input into `N` outputs where `N = duration / duration-rollup` and the duration of each output is `duration-rollup`
-* `instance-id`: The value of the tag in Datadog that uniquely identifies the unit represented by the input
+* `id`: The value of the tag in Datadog that uniquely identifies the unit represented by the input
 
 ### Outputs
 One of the key features of this plugin is that one input can be expanded into many outputs. 
@@ -65,7 +65,7 @@ initialize:
       path: 'https://github.com/moin-oss/datadog-importer'
       method: DatadogImporter
       global-config:
-        instance-id-tag: application
+        id-tag: application
         metrics: runtime.cpu.util,runtime.mem.requests
         output-metric-names: cpu/utilization,memory/available/GB
         tags: region,instance-type
@@ -80,7 +80,7 @@ tree:
         - timestamp: 2024-05-21T06:00
           duration: 1800
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
 ```
 In this scenario, we are collecting the CPU utilization and memory requests of `my-app` over the 30 minutes starting at 6:00 AM UTC on May 21, 2024. The plugin is configured to generate two 15 minute slices for each combination of cloud region and instance type. 
 
@@ -103,7 +103,7 @@ tree:
         - timestamp: 2024-05-21T06:00
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 34
           memory/available/GB: 2
           cloud/region: us-east-1
@@ -111,7 +111,7 @@ tree:
         - timestamp: 2024-05-21T06:15
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 23
           memory/available/GB: 2
           cloud/region: us-east-1
@@ -120,7 +120,7 @@ tree:
         - timestamp: 2024-05-21T06:00
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 76
           memory/available/GB: 1
           cloud/region: us-east-1
@@ -128,7 +128,7 @@ tree:
         - timestamp: 2024-05-21T06:15
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 87
           memory/available/GB: 1
           cloud/region: us-east-1
@@ -137,7 +137,7 @@ tree:
         - timestamp: 2024-05-21T06:00
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 25
           memory/available/GB: 4
           cloud/region: us-west-2
@@ -145,7 +145,7 @@ tree:
         - timestamp: 2024-05-21T06:15
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 12
           memory/available/GB: 4
           cloud/region: us-west-2
@@ -154,7 +154,7 @@ tree:
         - timestamp: 2024-05-21T06:00
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 43
           memory/available/GB: 1
           cloud/region: us-west-2
@@ -162,7 +162,7 @@ tree:
         - timestamp: 2024-05-21T06:15
           duration: 900
           duration-rollup: 900
-          instance-id: my-app
+          id: my-app
           cpu/utilization: 54
           memory/available/GB: 1
           cloud/region: us-west-2
@@ -177,7 +177,7 @@ To run the `datadog-importer` in typescript, an instance of `DatadogImporterPlug
 ```typescript
 async function runPlugin() {
   const globalConfig = {
-    'instance-id-tag': 'application'
+    'id-tag': 'application'
     metrics: 'runtime.cpu.util,runtime.mem.requests'
     'output-metric-names': 'cpu/utilization,memory/available/GB'
     tags: 'region,instance-type'
@@ -189,7 +189,7 @@ async function runPlugin() {
       timestamp: '2021-01-01T00:00:00Z',
       duration: 1800,
       'duration-rollup': 900,
-      'instance-id': 'my-app'
+      'id': 'my-app'
     },
   ]);
 

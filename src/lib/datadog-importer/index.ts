@@ -31,7 +31,8 @@ export const DatadogImporter = (
       console.log('Global Config is required');
       return inputs;
     }
-    const instanceIdTag: string = globalConfig['instance-id-tag'];
+
+    const identifierTag: string = globalConfig['id-tag'];
     const locationTag: string = globalConfig['location-tag'];
     const instanceTypeTag: string = globalConfig['instance-type-tag'];
     const metrics: string = globalConfig['metrics'];
@@ -73,7 +74,7 @@ export const DatadogImporter = (
         const params: v1.MetricsApiQueryMetricsRequest = {
           from: startUnixTime,
           to: startUnixTime + input.duration,
-          query: `avg:${metric}{${instanceIdTag}:${input['instance-id']}}by{${instanceTypeTag},${locationTag}}.rollup(${input['duration-rollup']})`,
+          query: `avg:${metric}{${identifierTag}:${input['id']}}by{${instanceTypeTag},${locationTag}}.rollup(${input['duration-rollup']})`,
         };
 
         const data = (await apiInstance

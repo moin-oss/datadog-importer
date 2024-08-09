@@ -35,7 +35,7 @@ describe('DatadogImporter(): ', () => {
   });
 
   const globalConfig = {
-    'instance-id-tag': 'app',
+    'id-tag': 'app',
     'location-tag': 'region',
     'instance-type-tag': 'instance-type',
     metrics: 'metric1,metric2',
@@ -44,7 +44,7 @@ describe('DatadogImporter(): ', () => {
 
   const validInput = [
     {
-      'instance-id': 'i-123456',
+      id: 'i-123456',
       timestamp: '2024-06-10T05:00:00.000Z',
       duration: 20,
     },
@@ -101,7 +101,7 @@ describe('DatadogImporter(): ', () => {
       const seriesDataMetric1 = [
         {
           tagSet: [
-            'instance-id:i-123456',
+            'id:i-123456',
             'region:us-central',
             'instance-type:t2.micro',
           ],
@@ -115,7 +115,7 @@ describe('DatadogImporter(): ', () => {
       const seriesDataMetric2 = [
         {
           tagSet: [
-            'instance-id:i-123456',
+            'id:i-123456',
             'region:us-central',
             'instance-type:t2.micro',
           ],
@@ -137,7 +137,7 @@ describe('DatadogImporter(): ', () => {
 
       expect(result).toEqual([
         {
-          'instance-id': 'i-123456',
+          id: 'i-123456',
           timestamp: '2024-06-10T05:00:00.000Z',
           duration: 10,
           location: 'us-central',
@@ -146,7 +146,7 @@ describe('DatadogImporter(): ', () => {
           outputMetric2: 0.25,
         },
         {
-          'instance-id': 'i-123456',
+          id: 'i-123456',
           timestamp: '2024-06-10T05:00:10.000Z',
           duration: 10,
           location: 'us-central',
