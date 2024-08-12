@@ -31,17 +31,19 @@ export const DatadogImporter = (
       console.log('Global Config is required');
       return inputs;
     }
+    const instanceIdTag: string = globalConfig['instance-id-tag'];
 
-    const identifierTag: string = globalConfig['id-tag'];
-    const locationTag: string = globalConfig['location-tag'];
-    const instanceTypeTag: string = globalConfig['instance-type-tag'];
     const metrics: string = globalConfig['metrics'];
     const outputMetricNames: string = globalConfig['output-metric-names'];
+    const tags: string = globalConfig['tags'];
+    const outputTagNames: string = globalConfig['output-tag-names'];
 
     config;
 
     const metricList = metrics.split(',');
     const outputMetricNameList = outputMetricNames.split(',');
+    const tagList = tags.split(',');
+    const outputTagNamesList = outputTagNames.split(',');
 
     if (metricList.length !== outputMetricNameList.length) {
       console.error(
@@ -57,15 +59,27 @@ export const DatadogImporter = (
       return inputs;
     }
 
+    if (tagList.length !== outputTagNamesList.length) {
+      console.error(
+        'Input Validation Error: tags and output-tag-names length must be equal.'
+      );
+      return inputs;
+    }
+
+    if (hasDuplicates(outputTagNamesList)) {
+      console.error(
+        'Input Validation Error: output-tag-names contains duplicate values.'
+      );
+      return inputs;
+    }
+
     if (!(await determineIfMetricsExist(apiInstance, metricList))) {
       return inputs;
     }
 
     for await (const input of inputs) {
-      // TODO time step as config
       const start = new Date(input.timestamp);
       const startUnixTime: number = Math.round(start.getTime() / 1000);
-      console.log(start.toISOString());
 
       for (let i = 0; i < metricList.length; i++) {
         const metric = metricList[i];
@@ -74,7 +88,7 @@ export const DatadogImporter = (
         const params: v1.MetricsApiQueryMetricsRequest = {
           from: startUnixTime,
           to: startUnixTime + input.duration,
-          query: `avg:${metric}{${identifierTag}:${input['id']}}by{${instanceTypeTag},${locationTag}}.rollup(${input['duration-rollup']})`,
+          query: `avg:${metric}{${instanceIdTag}:${input['instance-id']}}by{${tags}}.rollup(${input['duration-rollup']})`,
         };
 
         const data = (await apiInstance
@@ -86,60 +100,61 @@ export const DatadogImporter = (
             console.error(error);
           })) as v1.MetricsQueryResponse;
 
-        // TODO average over time series
-        // TODO handle multiple series
         const series = data.series || [];
         if (series.length === 0) {
           console.log('Series not found');
           continue;
         }
 
-        const tags = series[0].tagSet || [];
+        for (const s of series) {
+          const returnedTags = s.tagSet || [];
 
-        const pointlist = series[0].pointlist || [];
-        if (pointlist.length === 0) {
-          console.log('Points not found');
-          continue;
-        }
-
-        for (let j = 0; j < pointlist.length; j++) {
-          const point = pointlist[j];
-          let nextTimeStamp;
-          if (j === pointlist.length - 1) {
-            nextTimeStamp =
-              new Date(input.timestamp).getTime() + input.duration * 1000;
-          } else {
-            nextTimeStamp = pointlist[j + 1][0];
-          }
-          const timestamp = point[0];
-          const value = point[1];
-
-          let output: DatadogImporterParams;
-          if (i === 0) {
-            output = {
-              ...input,
-              timestamp: new Date(timestamp).toISOString(),
-              duration: (nextTimeStamp - timestamp) / 1000,
-              location: parseTag(locationTag, tags),
-              'cloud/instance-type': parseTag(instanceTypeTag, tags),
-            };
-          } else {
-            output = outputs[j];
+          const pointlist = s.pointlist || [];
+          if (pointlist.length === 0) {
+            console.log('Points not found');
+            continue;
           }
 
-          if (outputMetricName in output) {
-            console.error(
-              `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
-                output
-              )}`
-            );
-            break;
-          } else {
-            output[outputMetricName] = value;
-          }
+          for (let j = 0; j < pointlist.length; j++) {
+            const point = pointlist[j];
+            let nextTimeStamp;
+            if (j === pointlist.length - 1) {
+              nextTimeStamp =
+                new Date(input.timestamp).getTime() + input.duration * 1000;
+            } else {
+              nextTimeStamp = pointlist[j + 1][0];
+            }
+            const timestamp = point[0];
+            const value = point[1];
 
-          if (i === 0) {
-            outputs = [...outputs, output];
+            let output: DatadogImporterParams;
+            if (i === 0) {
+              output = {
+                ...input,
+                timestamp: new Date(timestamp).toISOString(),
+                duration: (nextTimeStamp - timestamp) / 1000,
+              };
+              tagList.forEach((tag, k) => {
+                output[outputTagNamesList[k]] = parseTag(tag, returnedTags);
+              });
+            } else {
+              output = outputs[j];
+            }
+
+            if (outputMetricName in output) {
+              console.error(
+                `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
+                  output
+                )}`
+              );
+              break;
+            } else {
+              output[outputMetricName] = value;
+            }
+
+            if (i === 0) {
+              outputs = [...outputs, output];
+            }
           }
         }
       }
