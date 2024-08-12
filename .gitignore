@@ -10,4 +10,6 @@ yarn-error.log
 build
 coverage
 .env
-test.y*ml
+.DS_Store
+**/.DS_Store
+test*.y*ml
