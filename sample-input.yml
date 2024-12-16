@@ -3,10 +3,10 @@ description:
 tags:
 initialize:
   plugins:
-    datadog-importer: 
+    datadog-importer:
       path: 'datadog-importer'
       method: DatadogImporter
-      global-config:
+      config:
         instance-id-tag: kube_node_address
         location-tag: aws_region
         instance-type-tag: aws_instance-type
@@ -15,7 +15,10 @@ tree:
   children:
     child-0:
       pipeline:
-        - datadog-importer
+        observe:
+        regroup:
+        compute:
+          - datadog-importer
       inputs:
         - timestamp: 2024-03-30T00:00
           duration: 120
