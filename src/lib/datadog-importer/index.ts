@@ -9,7 +9,7 @@ import {ERRORS} from '@grnsft/if-core/utils';
 const {ConfigError} = ERRORS;
 
 export const DatadogImporter = PluginFactory({
-  configValidation: async (config: ConfigParams) => {
+  configValidation: (config: ConfigParams) => {
     if (!config) {
       throw new ConfigError('Config is not provided.');
     }
@@ -26,31 +26,21 @@ export const DatadogImporter = PluginFactory({
 
     if (metricList.length !== outputMetricNameList.length) {
       throw new ConfigError(
-        'Input Validation Error: metrics and output-metric-names length must be equal.'
+        'Metrics and output-metric-names length must be equal.'
       );
     }
 
     if (hasDuplicates(outputMetricNameList)) {
-      throw new ConfigError(
-        'Input Validation Error: output-metric-names contains duplicate values.'
-      );
+      throw new ConfigError('Output-metric-names contains duplicate values.');
     }
 
     if (tagList.length !== outputTagNamesList.length) {
-      throw new ConfigError(
-        'Input Validation Error: tags and output-tag-names length must be equal.'
-      );
+      throw new ConfigError('Tags and output-tag-names length must be equal.');
     }
 
     if (hasDuplicates(outputTagNamesList)) {
-      throw new ConfigError(
-        'Input Validation Error: output-tag-names contains duplicate values.'
-      );
+      throw new ConfigError('Output-tag-names contains duplicate values.');
     }
-
-    const ddConfiguration = client.createConfiguration();
-    const apiInstance = new v1.MetricsApi(ddConfiguration);
-    await determineIfMetricsExist(apiInstance, metricList);
 
     return config;
   },
@@ -59,25 +49,28 @@ export const DatadogImporter = PluginFactory({
 
     return input;
   },
-  implementation: async (inputs: PluginParams[], _config: ConfigParams) => {
-    const configuration = client.createConfiguration();
-    const apiInstance = new v1.MetricsApi(configuration);
+  implementation: async (inputs: PluginParams[], config: ConfigParams) => {
+    console.log(inputs);
 
     let outputs: DatadogImporterParams[] = [];
 
-    const identifierTag: string = _config['id-tag'];
-
-    const metrics: string = _config['metrics'];
-    const outputMetricNames: string = _config['output-metric-names'];
-    const tags: string = _config['tags'];
-    const outputTagNames: string = _config['output-tag-names'];
+    const identifierTag: string = config['id-tag'];
+    const metrics: string = config['metrics'];
+    const outputMetricNames: string = config['output-metric-names'];
+    const tags: string = config['tags'];
+    const outputTagNames: string = config['output-tag-names'];
 
     const metricList = metrics.split(',');
     const outputMetricNameList = outputMetricNames.split(',');
     const tagList = tags.split(',');
     const outputTagNamesList = outputTagNames.split(',');
 
+    const configuration = client.createConfiguration();
+    const apiInstance = new v1.MetricsApi(configuration);
+    await determineIfMetricsExist(apiInstance, metricList);
+
     for await (const input of inputs) {
+      console.log(input);
       const start = new Date(input.timestamp);
       const startUnixTime: number = Math.round(start.getTime() / 1000);
 
@@ -90,6 +83,8 @@ export const DatadogImporter = PluginFactory({
           to: startUnixTime + input.duration,
           query: `avg:${metric}{${identifierTag}:${input['id']}}by{${tags}}.rollup(${input['duration-rollup']})`,
         };
+
+        console.log(params);
 
         const data = (await apiInstance
           .queryMetrics(params)
@@ -185,16 +180,16 @@ const determineIfMetricsExist = async (
     } catch (error) {
       if (error instanceof ApiException) {
         if (error.code === 404) {
-          throw ConfigError(`Metric ${metric} does not exist`);
+          throw new ConfigError(`Metric ${metric} does not exist`);
         } else {
-          throw ConfigError(
+          throw new ConfigError(
             `Error determining if metric ${metric} exists: ${error.body.errors.join(
               ', '
             )}`
           );
         }
       } else {
-        throw ConfigError(
+        throw new ConfigError(
           `Unexpected error determining if metric ${metric} exists: ${error}`
         );
       }
