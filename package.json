@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@datadog/datadog-api-client": "^1.23.0",
+    "@grnsft/if": "^0.7.2",
     "typescript": "^5.1.6"
   },
   "devDependencies": {

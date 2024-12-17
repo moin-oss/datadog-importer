@@ -1,6 +1,9 @@
 import {DatadogImporter} from '../../../lib';
 import {v1} from '@datadog/datadog-api-client';
 import {ApiException} from '@datadog/datadog-api-client/dist/packages/datadog-api-client-common';
+import {ERRORS} from '@grnsft/if-core/utils';
+
+const {ConfigError} = ERRORS;
 
 console.log = jest.fn();
 console.warn = jest.fn();
@@ -38,7 +41,7 @@ describe('DatadogImporter(): ', () => {
     getMetricMetadata: jest.fn().mockResolvedValue({}),
   });
 
-  const globalConfig = {
+  const config = {
     'instance-id-tag': 'app',
     metrics: 'metric1,metric2',
     'output-metric-names': 'outputMetric1,outputMetric2',
@@ -60,41 +63,37 @@ describe('DatadogImporter(): ', () => {
     });
 
     it('has metadata field.', () => {
-      const pluginInstance = DatadogImporter({});
+      const pluginInstance = DatadogImporter({}, {}, {});
 
+      expect.assertions(3);
       expect(pluginInstance).toHaveProperty('metadata');
       expect(pluginInstance).toHaveProperty('execute');
-      expect(pluginInstance.metadata).toHaveProperty('kind');
       expect(typeof pluginInstance.execute).toBe('function');
     });
 
-    it('should log error and return the input if output-metric-names contains duplicate values', async () => {
+    it('should throw config exception if output-metric-names contains duplicate values', async () => {
       const invalidConfig = {
-        ...globalConfig,
+        ...config,
         'output-metric-names': 'outputMetric1,outputMetric1',
       };
-      const importer = DatadogImporter(invalidConfig);
-      const result = await importer.execute(validInput);
-      expect(result).toEqual(validInput);
-      expect(console.error).toHaveBeenCalledWith(
-        'Input Validation Error: output-metric-names contains duplicate values.'
+      const importer = DatadogImporter(invalidConfig, {}, {});
+      await expect(importer.execute(validInput)).rejects.toEqual(
+        new ConfigError('Output-metric-names contains duplicate values.')
       );
     });
 
-    it('should log error and return the input if metrics and output-metric-names length are not equal', async () => {
+    it('should throw config exception if metrics and output-metric-names length are not equal', async () => {
       const invalidConfig = {
-        ...globalConfig,
+        ...config,
         'output-metric-names': 'outputMetric1',
       };
-      const importer = DatadogImporter(invalidConfig);
-      const result = await importer.execute(validInput);
-      expect(result).toEqual(validInput);
-      expect(console.error).toHaveBeenCalledWith(
-        'Input Validation Error: metrics and output-metric-names length must be equal.'
+      const importer = DatadogImporter(invalidConfig, {}, {});
+      await expect(importer.execute(validInput)).rejects.toEqual(
+        new ConfigError('Metrics and output-metric-names length must be equal.')
       );
     });
 
-    it('should log error and return the input if a metric does not exist', async () => {
+    it('should throw config exception if a metric does not exist', async () => {
       const createMockApiInstance = () => ({
         getMetricMetadata: jest
           .fn()
@@ -104,39 +103,33 @@ describe('DatadogImporter(): ', () => {
       const apiInstance = createMockApiInstance();
       (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
 
-      const importer = DatadogImporter(globalConfig);
-      const result = await importer.execute(validInput);
-      expect(result).toEqual(validInput);
-      expect(console.error).toHaveBeenCalledWith(
-        'Metric metric1 does not exist'
+      const importer = DatadogImporter(config, {}, {});
+      await expect(importer.execute(validInput)).rejects.toEqual(
+        new ConfigError('Metric metric1 does not exist')
       );
     });
 
-    it('should log error and return the input if output-tag-names contains duplicate values', async () => {
+    it('should throw config exception if output-tag-names contains duplicate values', async () => {
       const invalidConfig = {
-        ...globalConfig,
+        ...config,
         'output-tag-names': 'outputTag1,outputTag1',
       };
 
-      const importer = DatadogImporter(invalidConfig);
-      const result = await importer.execute(validInput);
-      expect(result).toEqual(validInput);
-      expect(console.error).toHaveBeenCalledWith(
-        'Input Validation Error: output-tag-names contains duplicate values.'
+      const importer = DatadogImporter(invalidConfig, {}, {});
+      await expect(importer.execute(validInput)).rejects.toEqual(
+        new ConfigError('Output-tag-names contains duplicate values.')
       );
     });
 
-    it('should log error and return the input if tags and output-tag-names length are not equal', async () => {
+    it('should throw config exception if tags and output-tag-names length are not equal', async () => {
       const invalidConfig = {
-        ...globalConfig,
+        ...config,
         'output-tag-names': 'outputTag1',
       };
 
-      const importer = DatadogImporter(invalidConfig);
-      const result = await importer.execute(validInput);
-      expect(result).toEqual(validInput);
-      expect(console.error).toHaveBeenCalledWith(
-        'Input Validation Error: tags and output-tag-names length must be equal.'
+      const importer = DatadogImporter(invalidConfig, {}, {});
+      await expect(importer.execute(validInput)).rejects.toEqual(
+        new ConfigError('Tags and output-tag-names length must be equal.')
       );
     });
 
@@ -169,7 +162,7 @@ describe('DatadogImporter(): ', () => {
       const apiInstance = createMockApiInstance(metricToSeriesDataMap);
       (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
 
-      const importer = DatadogImporter(globalConfig);
+      const importer = DatadogImporter(config, {}, {});
       const result = await importer.execute(validInput);
 
       expect(result).toEqual([
@@ -224,7 +217,7 @@ describe('DatadogImporter(): ', () => {
       const apiInstance = createMockApiInstance(metricToSeriesDataMap);
       (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
 
-      const importer = DatadogImporter(globalConfig);
+      const importer = DatadogImporter(config, {}, {});
       const result = await importer.execute(validInput);
 
       expect(result).toEqual([

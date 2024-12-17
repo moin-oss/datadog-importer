@@ -1,81 +1,71 @@
-import {YourGlobalConfig as DatadogImporterGlobalConfig} from './types';
-import {
-  DatadogImporterInterface,
-  DatadogImporterParams,
-} from '../types/interface';
+import {DatadogImporterParams} from '../types/interface';
 import {client, v1} from '@datadog/datadog-api-client';
 import {ApiException} from '@datadog/datadog-api-client/dist/packages/datadog-api-client-common';
 
-export const DatadogImporter = (
-  globalConfig: DatadogImporterGlobalConfig
-): DatadogImporterInterface => {
-  const metadata = {
-    kind: 'execute',
-  };
+import {PluginFactory} from '@grnsft/if-core/interfaces';
+import {PluginParams, ConfigParams} from '@grnsft/if-core/types';
+import {ERRORS} from '@grnsft/if-core/utils';
 
-  /**
-   * Execute's strategy description here.
-   */
-  const execute = async (
-    inputs: DatadogImporterParams[],
-    config?: Record<string, any>
-  ): Promise<DatadogImporterParams[]> => {
-    const configuration = client.createConfiguration();
-    const apiInstance = new v1.MetricsApi(configuration);
+const {ConfigError} = ERRORS;
 
-    let outputs: DatadogImporterParams[] = [];
-
-    // TODO validate config
-    // TODO move some stuff to global config
-    if (globalConfig === undefined) {
-      console.log('Global Config is required');
-      return inputs;
+export const DatadogImporter = PluginFactory({
+  configValidation: (config: ConfigParams) => {
+    if (!config) {
+      throw new ConfigError('Config is not provided.');
     }
-    const identifierTag: string = globalConfig['id-tag'];
 
-    const metrics: string = globalConfig['metrics'];
-    const outputMetricNames: string = globalConfig['output-metric-names'];
-    const tags: string = globalConfig['tags'];
-    const outputTagNames: string = globalConfig['output-tag-names'];
-
-    config;
+    const metrics: string = config['metrics'];
+    const outputMetricNames: string = config['output-metric-names'];
+    const tags: string = config['tags'];
+    const outputTagNames: string = config['output-tag-names'];
 
     const metricList = metrics.split(',');
     const outputMetricNameList = outputMetricNames.split(',');
-    const tagList = tags.split(',');
-    const outputTagNamesList = outputTagNames.split(',');
+    const tagList = tags ? tags.split(',') : [];
+    const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
 
     if (metricList.length !== outputMetricNameList.length) {
-      console.error(
-        'Input Validation Error: metrics and output-metric-names length must be equal.'
+      throw new ConfigError(
+        'Metrics and output-metric-names length must be equal.'
       );
-      return inputs;
     }
 
     if (hasDuplicates(outputMetricNameList)) {
-      console.error(
-        'Input Validation Error: output-metric-names contains duplicate values.'
-      );
-      return inputs;
+      throw new ConfigError('Output-metric-names contains duplicate values.');
     }
 
     if (tagList.length !== outputTagNamesList.length) {
-      console.error(
-        'Input Validation Error: tags and output-tag-names length must be equal.'
-      );
-      return inputs;
+      throw new ConfigError('Tags and output-tag-names length must be equal.');
     }
 
     if (hasDuplicates(outputTagNamesList)) {
-      console.error(
-        'Input Validation Error: output-tag-names contains duplicate values.'
-      );
-      return inputs;
+      throw new ConfigError('Output-tag-names contains duplicate values.');
     }
 
-    if (!(await determineIfMetricsExist(apiInstance, metricList))) {
-      return inputs;
-    }
+    return config;
+  },
+  inputValidation: (input: PluginParams) => {
+    // do input validation here or pass zod schema
+
+    return input;
+  },
+  implementation: async (inputs: PluginParams[], config: ConfigParams) => {
+    let outputs: DatadogImporterParams[] = [];
+
+    const identifierTag: string = config['id-tag'];
+    const metrics: string = config['metrics'];
+    const outputMetricNames: string = config['output-metric-names'];
+    const tags: string = config['tags'];
+    const outputTagNames: string = config['output-tag-names'];
+
+    const metricList = metrics.split(',');
+    const outputMetricNameList = outputMetricNames.split(',');
+    const tagList = tags ? tags.split(',') : [];
+    const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
+
+    const configuration = client.createConfiguration();
+    const apiInstance = new v1.MetricsApi(configuration);
+    await determineIfMetricsExist(apiInstance, metricList);
 
     for await (const input of inputs) {
       const start = new Date(input.timestamp);
@@ -85,10 +75,11 @@ export const DatadogImporter = (
         const metric = metricList[i];
         const outputMetricName = outputMetricNameList[i];
 
+        const query = buildQuery(input, metric, identifierTag, tags);
         const params: v1.MetricsApiQueryMetricsRequest = {
           from: startUnixTime,
           to: startUnixTime + input.duration,
-          query: `avg:${metric}{${identifierTag}:${input['id']}}by{${tags}}.rollup(${input['duration-rollup']})`,
+          query: query,
         };
 
         const data = (await apiInstance
@@ -161,64 +152,78 @@ export const DatadogImporter = (
     }
 
     return outputs;
-  };
+  },
+});
 
-  /**
-   * Calls Datadog to determine if metrics exist
-   * @param apiInstance Datadog metrics api instance
-   * @param metrics metric names in question
-   * @returns true if all metrics exist, false if not or could not be determined
-   */
-  async function determineIfMetricsExist(
-    apiInstance: v1.MetricsApi,
-    metrics: string[]
-  ): Promise<boolean> {
-    for (const metric of metrics) {
-      const params: v1.MetricsApiGetMetricMetadataRequest = {
-        metricName: metric,
-      };
+/**
+ * Calls Datadog to determine if metrics exist
+ * @param apiInstance Datadog metrics api instance
+ * @param metrics metric names in question
+ * @returns true if all metrics exist, false if not or could not be determined
+ */
+const determineIfMetricsExist = async (
+  apiInstance: v1.MetricsApi,
+  metrics: string[]
+): Promise<boolean> => {
+  for (const metric of metrics) {
+    const params: v1.MetricsApiGetMetricMetadataRequest = {
+      metricName: metric,
+    };
 
-      try {
-        // If the request is successful, the metric exists
-        await apiInstance.getMetricMetadata(params);
-      } catch (error) {
-        if (error instanceof ApiException) {
-          if (error.code === 404) {
-            console.error(`Metric ${metric} does not exist`);
-          } else {
-            console.error(
-              `Error determining if metric ${metric} exists: ${error.body.errors.join(
-                ', '
-              )}`
-            );
-          }
+    try {
+      // If the request is successful, the metric exists
+      await apiInstance.getMetricMetadata(params);
+    } catch (error) {
+      if (error instanceof ApiException) {
+        if (error.code === 404) {
+          throw new ConfigError(`Metric ${metric} does not exist`);
         } else {
-          console.error(
-            `Unexpected error determining if metric ${metric} exists: ${error}`
+          throw new ConfigError(
+            `Error determining if metric ${metric} exists: ${error.body.errors.join(
+              ', '
+            )}`
           );
         }
-        return false;
+      } else {
+        throw new ConfigError(
+          `Unexpected error determining if metric ${metric} exists: ${error}`
+        );
       }
     }
-    return true;
   }
+  return true;
+};
 
-  function parseTag(tag: string, tagSet: string[]) {
-    for (const pair of tagSet) {
-      const [key, value] = pair.split(':', 2);
-      if (key === tag) {
-        return value;
-      }
+const parseTag = (tag: string, tagSet: string[]) => {
+  for (const pair of tagSet) {
+    const [key, value] = pair.split(':', 2);
+    if (key === tag) {
+      return value;
     }
-    return '';
+  }
+  return '';
+};
+
+const hasDuplicates = (array: string[]) => {
+  return new Set(array).size !== array.length;
+};
+
+const buildQuery = (
+  input: PluginParams,
+  metric: string,
+  identifierTag: string,
+  tags: string
+): string => {
+  let query = `avg:${metric}{${identifierTag}:${input['id']}}`;
+
+  if (tags && tags.trim() !== '') {
+    query += `by{${tags}}`;
   }
 
-  function hasDuplicates(array: string[]) {
-    return new Set(array).size !== array.length;
+  const durationRollup = input['duration-rollup'];
+  if (durationRollup !== null && durationRollup !== undefined) {
+    query += `.rollup(${durationRollup})`;
   }
 
-  return {
-    metadata,
-    execute,
-  };
+  return query;
 };

@@ -1,23 +1,24 @@
-name: basic-demo
-description:
-tags:
+name: datadog-importer-example
+description: A sample manifest file demonstrating usage of the datadog-importer plugin
 initialize:
   plugins:
-    datadog-importer: 
-      path: 'datadog-importer'
+    datadog-importer:
+      path: 'https://github.com/moin-oss/datadog-importer'
       method: DatadogImporter
-      global-config:
-        instance-id-tag: kube_node_address
-        location-tag: aws_region
-        instance-type-tag: aws_instance-type
-        cpu-utilization-metric-name: system.cpu.utilization.pct
+      config:
+        id-tag: application
+        metrics: runtime.cpu.util,runtime.mem.requests
+        output-metric-names: cpu/utilization,memory/available/GB
+        tags: region,instance-type
+        output-tag-names: cloud/region,cloud/instance-type
 tree:
   children:
-    child-0:
+    my-app:
       pipeline:
-        - datadog-importer
+        observe:
+          - datadog-importer
       inputs:
-        - timestamp: 2024-03-30T00:00
-          duration: 120
-          duration-rollup: 5
-          instance-id: ip-1-2-3-4.test.node.address
+        - timestamp: 2024-05-21T06:00
+          duration: 1800
+          duration-rollup: 900
+          id: my-app
