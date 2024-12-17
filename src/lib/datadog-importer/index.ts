@@ -21,8 +21,8 @@ export const DatadogImporter = PluginFactory({
 
     const metricList = metrics.split(',');
     const outputMetricNameList = outputMetricNames.split(',');
-    const tagList = tags.split(',');
-    const outputTagNamesList = outputTagNames.split(',');
+    const tagList = tags ? tags.split(',') : [];
+    const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
 
     if (metricList.length !== outputMetricNameList.length) {
       throw new ConfigError(
@@ -50,8 +50,6 @@ export const DatadogImporter = PluginFactory({
     return input;
   },
   implementation: async (inputs: PluginParams[], config: ConfigParams) => {
-    console.log(inputs);
-
     let outputs: DatadogImporterParams[] = [];
 
     const identifierTag: string = config['id-tag'];
@@ -62,15 +60,14 @@ export const DatadogImporter = PluginFactory({
 
     const metricList = metrics.split(',');
     const outputMetricNameList = outputMetricNames.split(',');
-    const tagList = tags.split(',');
-    const outputTagNamesList = outputTagNames.split(',');
+    const tagList = tags ? tags.split(',') : [];
+    const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
 
     const configuration = client.createConfiguration();
     const apiInstance = new v1.MetricsApi(configuration);
     await determineIfMetricsExist(apiInstance, metricList);
 
     for await (const input of inputs) {
-      console.log(input);
       const start = new Date(input.timestamp);
       const startUnixTime: number = Math.round(start.getTime() / 1000);
 
@@ -78,10 +75,11 @@ export const DatadogImporter = PluginFactory({
         const metric = metricList[i];
         const outputMetricName = outputMetricNameList[i];
 
+        const query = buildQuery(input, metric, identifierTag, tags);
         const params: v1.MetricsApiQueryMetricsRequest = {
           from: startUnixTime,
           to: startUnixTime + input.duration,
-          query: `avg:${metric}{${identifierTag}:${input['id']}}by{${tags}}.rollup(${input['duration-rollup']})`,
+          query: query,
         };
 
         console.log(params);
@@ -210,4 +208,24 @@ const parseTag = (tag: string, tagSet: string[]) => {
 
 const hasDuplicates = (array: string[]) => {
   return new Set(array).size !== array.length;
+};
+
+const buildQuery = (
+  input: PluginParams,
+  metric: string,
+  identifierTag: string,
+  tags: string
+): string => {
+  let query = `avg:${metric}{${identifierTag}:${input['id']}}`;
+
+  if (tags && tags.trim() !== '') {
+    query += `by{${tags}}`;
+  }
+
+  const durationRollup = input['duration-rollup'];
+  if (durationRollup !== null && durationRollup !== undefined) {
+    query += `.rollup(${durationRollup})`;
+  }
+
+  return query;
 };
