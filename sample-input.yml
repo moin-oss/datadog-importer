@@ -1,10 +1,9 @@
-name: basic-demo
-description:
-tags:
+name: datadog-importer-example
+description: A sample manifest file demonstrating usage of the datadog-importer plugin
 initialize:
   plugins:
     datadog-importer:
-      path: 'datadog-importer'
+      path: 'https://github.com/moin-oss/datadog-importer'
       method: DatadogImporter
       config:
         id-tag: application
@@ -14,14 +13,12 @@ initialize:
         output-tag-names: cloud/region,cloud/instance-type
 tree:
   children:
-    child-0:
+    my-app:
       pipeline:
         observe:
-        regroup:
-        compute:
           - datadog-importer
       inputs:
         - timestamp: 2024-05-21T06:00
-        - duration: 1800
-        - duration-rollup: 900
-        - id: my-app
+          duration: 1800
+          duration-rollup: 900
+          id: my-app

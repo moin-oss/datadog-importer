@@ -64,7 +64,7 @@ initialize:
     datadog-importer: 
       path: 'https://github.com/moin-oss/datadog-importer'
       method: DatadogImporter
-      global-config:
+      config:
         id-tag: application
         metrics: runtime.cpu.util,runtime.mem.requests
         output-metric-names: cpu/utilization,memory/available/GB
@@ -176,14 +176,14 @@ To run the `datadog-importer` in typescript, an instance of `DatadogImporterPlug
 
 ```typescript
 async function runPlugin() {
-  const globalConfig = {
-    'id-tag': 'application'
-    metrics: 'runtime.cpu.util,runtime.mem.requests'
-    'output-metric-names': 'cpu/utilization,memory/available/GB'
-    tags: 'region,instance-type'
+  const config = {
+    'id-tag': 'application',
+    metrics: 'runtime.cpu.util,runtime.mem.requests',
+    'output-metric-names': 'cpu/utilization,memory/available/GB',
+    tags: 'region,instance-type',
     'output-tag-names': 'cloud/region,cloud/instance-type'
   }
-  const datadogImporter = await new DatadogImporter(globalConfig);
+  const datadogImporter = await new DatadogImporter(config);
   const usage = await datadogImporter.execute([
     {
       timestamp: '2021-01-01T00:00:00Z',
@@ -216,7 +216,7 @@ initialize:
     my-custom-plugin:
       method: DatadogImporter
       path: 'datadog-importer'
-      global-config:
+      config:
         ...
 ...
 ```

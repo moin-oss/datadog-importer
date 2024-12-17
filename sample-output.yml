@@ -1,71 +1,75 @@
-name: basic-demo
-description:
-tags:
-initialize:
-  plugins:
-    datadog-importer: 
-      path: 'datadog-importer'
-      method: DatadogImporter
-      global-config:
-        instance-id-tag: kube_node_address
-        location-tag: aws_region
-        instance-type-tag: aws_instance-type
-        cpu-utilization-metric-name: system.cpu.utilization.pct
 tree:
   children:
-    child-0:
+    my-app:
       pipeline:
-        - datadog-importer
-      inputs:
-        - timestamp: 2024-03-30T00:00
-          duration: 120
-          instance-id: ip-1-2-3-4.test.node.address
+        observe:
+          - datadog-importer
       outputs:
-        - timestamp: 2024-03-30T07:00:11.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 4.99958249836525
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
-        - timestamp: 2024-03-30T07:00:26.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 5.783174448704609
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
-        - timestamp: 2024-03-30T07:00:41.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 6.947053503070115
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
-        - timestamp: 2024-03-30T07:00:56.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 6.875782444947936
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
-        - timestamp: 2024-03-30T07:01:11.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 5.275280429687863
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
-        - timestamp: 2024-03-30T07:01:16.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 5.454292569307151
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
-        - timestamp: 2024-03-30T07:01:41.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 5.0076864753622985
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
-        - timestamp: 2024-03-30T07:01:56.000Z
-          duration: 15
-          instance-id: ip-1-2-3-4.test.node.address
-          cpu/utilization: 5.542680168603422
-          location: us-east-2
-          cloud/instance-type: c4.xlarge
+        # Time series: `region:us-east-1`, `instance-type:a1-large`
+        - timestamp: 2024-05-21T06:00
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 34
+          memory/available/GB: 2
+          cloud/region: us-east-1
+          cloud/instance-type: a1-large
+        - timestamp: 2024-05-21T06:15
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 23
+          memory/available/GB: 2
+          cloud/region: us-east-1
+          cloud/instance-type: a1-large
+        # Time series: `region:us-east-1`, `instance-type:b2-small`
+        - timestamp: 2024-05-21T06:00
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 76
+          memory/available/GB: 1
+          cloud/region: us-east-1
+          cloud/instance-type: b2-small
+        - timestamp: 2024-05-21T06:15
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 87
+          memory/available/GB: 1
+          cloud/region: us-east-1
+          cloud/instance-type: b2-small
+        # Time series: `region:us-west-2`, `instance-type:a1-large`
+        - timestamp: 2024-05-21T06:00
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 25
+          memory/available/GB: 4
+          cloud/region: us-west-2
+          cloud/instance-type: a1-large
+        - timestamp: 2024-05-21T06:15
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 12
+          memory/available/GB: 4
+          cloud/region: us-west-2
+          cloud/instance-type: a1-large
+        # Time series: `region:us-west-2`, `instance-type:b2-small`
+        - timestamp: 2024-05-21T06:00
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 43
+          memory/available/GB: 1
+          cloud/region: us-west-2
+          cloud/instance-type: b2-small
+        - timestamp: 2024-05-21T06:15
+          duration: 900
+          duration-rollup: 900
+          id: my-app
+          cpu/utilization: 54
+          memory/available/GB: 1
+          cloud/region: us-west-2
+          cloud/instance-type: b2-small

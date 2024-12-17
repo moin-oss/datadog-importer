@@ -82,8 +82,6 @@ export const DatadogImporter = PluginFactory({
           query: query,
         };
 
-        console.log(params);
-
         const data = (await apiInstance
           .queryMetrics(params)
           .then((data: v1.MetricsQueryResponse) => {
