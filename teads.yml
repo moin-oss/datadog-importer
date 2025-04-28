@@ -1,0 +1,85 @@
+name: carbon-intensity plugin demo
+description:
+tags:
+initialize:
+  plugins:
+    datadog-importer:
+      path: 'https://github.com/moin-oss/datadog-importer'
+      method: DatadogImporter
+      config:
+        id-tag: service
+        metrics: kubernetes.cpu.usage.total
+        output-metric-names: cpu/utilization
+    interpolate:
+      method: Interpolation
+      path: "builtin"
+      config:
+        method: linear
+        x: [0, 10, 50, 100]
+        y: [0.12, 0.32, 0.75, 1.02]
+        input-parameter: "cpu/utilization"
+        output-parameter: "cpu-factor"
+    cpu-factor-to-wattage:
+      method: Multiply
+      path: builtin
+      config:
+        input-parameters: ["cpu-factor", "thermal-design-power"]
+        output-parameter: "cpu-wattage"
+    wattage-times-duration:
+      method: Multiply
+      path: builtin
+      config:
+        input-parameters: ["cpu-wattage", "duration"]
+        output-parameter: "cpu-wattage-times-duration"
+    wattage-to-energy-kwh:
+      method: Divide
+      path: "builtin"
+      config:
+        numerator: cpu-wattage-times-duration
+        denominator: 3600000
+        output: cpu-energy-raw
+    calculate-vcpu-ratio:
+      method: Divide
+      path: "builtin"
+      config:
+        numerator: vcpus-total
+        denominator: vcpus-allocated
+        output: vcpu-ratio
+    correct-cpu-energy-for-vcpu-ratio:
+      method: Divide
+      path: "builtin"
+      config:
+        numerator: cpu-energy-raw
+        denominator: vcpu-ratio
+        output: cpu-energy-kwh
+    energy-to-carbon:
+      path: builtin
+      method: Multiply
+      config:
+        input-parameters:
+          - grid-carbon-intensity
+          - cpu-energy-kwh
+        output-parameter: carbon
+tree:
+  children:
+    child:
+      pipeline:
+        compute:
+          - interpolate
+          - cpu-factor-to-wattage
+          - wattage-times-duration
+          - wattage-to-energy-kwh
+          - calculate-vcpu-ratio
+          - correct-cpu-energy-for-vcpu-ratio
+          - energy-to-carbon
+      defaults:
+        thermal-design-power: 250
+        vcpus-total: 5
+        vcpus-allocated: 1
+        grid-carbon-intensity: 400
+      inputs:
+        - timestamp: 2025-01-28T12:00
+          duration: 3600
+          duration-rollup: 3600
+          id: profiocdctransformer
+          cpu/utilization: 50
