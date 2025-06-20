@@ -14,79 +14,63 @@ export const DatadogImporter = PluginFactory({
       throw new ConfigError('Config is not provided.');
     }
 
+    const errors: string[] = [];
+
     const tags: string = config['tags'];
     const outputTagNames: string = config['output-tag-names'];
     const tagList = tags ? tags.split(',') : [];
     const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
 
+    // tags and output-tag-names validation
     if (tagList.length !== outputTagNamesList.length) {
-      throw new ConfigError('Tags and output-tag-names length must be equal.');
+      errors.push('Tags and output-tag-names length must be equal.');
     }
 
     if (hasDuplicates(outputTagNamesList)) {
-      throw new ConfigError('Output-tag-names contains duplicate values.');
+      errors.push('output-tag-names contains duplicate values.');
     }
 
-    // If a raw query is provided, validate raw query specific config
+    // Raw query specific config
     const rawQuery: string = config['raw-query'];
     if (rawQuery) {
+      // output-metric-names must be provided and must contain exactly one item
       const outputMetricNames: string = config['output-metric-names'];
       if (!outputMetricNames) {
-        throw new ConfigError(
-          'output-metric-names is required when using raw-query.'
-        );
+        errors.push('output-metric-names is required when using raw-query.');
+      } else {
+        const outputMetricNameList = outputMetricNames.split(',');
+        if (outputMetricNameList.length !== 1) {
+          errors.push(
+            'output-metric-names must contain exactly one item when using raw-query.'
+          );
+        }
       }
+    } else {
+      const metrics: string = config['metrics'];
+      const outputMetricNames: string = config['output-metric-names'];
 
-      const outputMetricNameList = outputMetricNames.split(',');
-      if (outputMetricNameList.length !== 1) {
-        throw new ConfigError(
-          'output-metric-names must contain exactly one item when using raw-query.'
+      if (!metrics || !outputMetricNames) {
+        errors.push(
+          'Metrics and output-metric-names are required for templated query.'
         );
-      }
+      } else {
+        const metricList = metrics.split(',');
+        const outputMetricNameList = outputMetricNames.split(',');
 
-      // Validate optional tag configuration
-      const tags: string = config['tags'];
-      const outputTagNames: string = config['output-tag-names'];
-      if (tags || outputTagNames) {
-        const tagList = tags ? tags.split(',') : [];
-        const outputTagNamesList = outputTagNames
-          ? outputTagNames.split(',')
-          : [];
-
-        if (tagList.length !== outputTagNamesList.length) {
-          throw new ConfigError(
-            'Tags and output-tag-names length must be equal.'
+        if (metricList.length !== outputMetricNameList.length) {
+          errors.push(
+            'Metrics and output-metric-names length must be equal for templated query.'
           );
         }
 
-        if (hasDuplicates(outputTagNamesList)) {
-          throw new ConfigError('Output-tag-names contains duplicate values.');
+        if (hasDuplicates(outputMetricNameList)) {
+          errors.push('Output-metric-names contains duplicate values.');
         }
       }
-
-      return config;
     }
 
-    const metrics: string = config['metrics'];
-    const outputMetricNames: string = config['output-metric-names'];
-
-    if (!metrics || !outputMetricNames) {
-      throw new ConfigError(
-        'Metrics and output-metric-names are required when raw-query is not provided.'
-      );
-    }
-
-    const metricList = metrics.split(',');
-    const outputMetricNameList = outputMetricNames.split(',');
-
-    if (metricList.length !== outputMetricNameList.length) {
-      throw new ConfigError(
-        'Metrics and output-metric-names length must be equal.'
-      );
-    }
-
-    if (hasDuplicates(outputMetricNameList)) {
-      throw new ConfigError('Output-metric-names contains duplicate values.');
+    if (errors.length > 0) {
+      throw new ConfigError(errors.join(' '));
     }
 
     return config;
