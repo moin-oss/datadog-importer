@@ -14,6 +14,19 @@ export const DatadogImporter = PluginFactory({
       throw new ConfigError('Config is not provided.');
     }
 
+    const tags: string = config['tags'];
+    const outputTagNames: string = config['output-tag-names'];
+    const tagList = tags ? tags.split(',') : [];
+    const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
+
+    if (tagList.length !== outputTagNamesList.length) {
+      throw new ConfigError('Tags and output-tag-names length must be equal.');
+    }
+
+    if (hasDuplicates(outputTagNamesList)) {
+      throw new ConfigError('Output-tag-names contains duplicate values.');
+    }
+
     // If a raw query is provided, validate raw query specific config
     const rawQuery: string = config['raw-query'];
     if (rawQuery) {
@@ -54,11 +67,8 @@ export const DatadogImporter = PluginFactory({
       return config;
     }
 
-    // Validate standard metric-based configuration
     const metrics: string = config['metrics'];
     const outputMetricNames: string = config['output-metric-names'];
-    const tags: string = config['tags'];
-    const outputTagNames: string = config['output-tag-names'];
 
     if (!metrics || !outputMetricNames) {
       throw new ConfigError(
@@ -68,8 +78,6 @@ export const DatadogImporter = PluginFactory({
 
     const metricList = metrics.split(',');
     const outputMetricNameList = outputMetricNames.split(',');
-    const tagList = tags ? tags.split(',') : [];
-    const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
 
     if (metricList.length !== outputMetricNameList.length) {
       throw new ConfigError(
@@ -79,14 +87,6 @@ export const DatadogImporter = PluginFactory({
 
     if (hasDuplicates(outputMetricNameList)) {
       throw new ConfigError('Output-metric-names contains duplicate values.');
-    }
-
-    if (tagList.length !== outputTagNamesList.length) {
-      throw new ConfigError('Tags and output-tag-names length must be equal.');
-    }
-
-    if (hasDuplicates(outputTagNamesList)) {
-      throw new ConfigError('Output-tag-names contains duplicate values.');
     }
 
     return config;
@@ -103,14 +103,12 @@ export const DatadogImporter = PluginFactory({
     const isRawQueryMode = !!rawQuery;
 
     const outputMetricNames: string = config['output-metric-names'];
-    let tags = '';
-    let outputTagNames = '';
+    const tags: string = config['tags'];
+    const outputTagNames: string = config['output-tag-names'];
     let identifierTag = '';
     let metrics = '';
 
     if (!isRawQueryMode) {
-      tags = config['tags'];
-      outputTagNames = config['output-tag-names'];
       identifierTag = config['id-tag'];
       metrics = config['metrics'];
     }
@@ -142,8 +140,8 @@ export const DatadogImporter = PluginFactory({
             queryResult,
             input,
             [outputMetricNames],
-            '',
-            ''
+            tags,
+            outputTagNames
           );
           outputs = [...outputs, ...processedOutputs];
         }

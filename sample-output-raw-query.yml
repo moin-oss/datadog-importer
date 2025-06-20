@@ -1,0 +1,168 @@
+tree:
+  children:
+    my-app:
+      pipeline:
+        observe:
+          - datadog-importer
+      outputs:
+        outputs:
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-southeast-2
+            cpu/utilization: 8.268776655185185
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-southeast-2
+            cpu/utilization: 8.913598207037039
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-southeast-2
+            cpu/utilization: 7.693053462222223
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-southeast-2
+            cpu/utilization: 6.943327695000001
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-northeast-1
+            cpu/utilization: 41.78124461291005
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-northeast-1
+            cpu/utilization: 44.59434354740741
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-northeast-1
+            cpu/utilization: 41.62926361629629
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-northeast-1
+            cpu/utilization: 39.69727875146199
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ca-central-1
+            cpu/utilization: 21.440212615967077
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ca-central-1
+            cpu/utilization: 17.365691270946503
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ca-central-1
+            cpu/utilization: 14.164281115390947
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ca-central-1
+            cpu/utilization: 12.684447214320988
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-central-1
+            cpu/utilization: 0.8335181286959876
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-central-1
+            cpu/utilization: 0.8765326869753086
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-central-1
+            cpu/utilization: 0.8432703767636129
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-central-1
+            cpu/utilization: 0.8508130789273838
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-east-2
+            cpu/utilization: 38.91347883752544
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-east-2
+            cpu/utilization: 42.51618680552278
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-east-2
+            cpu/utilization: 40.13003476769272
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-east-2
+            cpu/utilization: 38.61276295041138
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-south-1
+            cpu/utilization: 0.8019651020524691
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-south-1
+            cpu/utilization: 0.8492936041961515
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-south-1
+            cpu/utilization: 0.804790802665277
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: ap-south-1
+            cpu/utilization: 0.813748652794848
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-west-2
+            cpu/utilization: 42.24364976425589
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-west-2
+            cpu/utilization: 42.548592056912945
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-west-2
+            cpu/utilization: 41.553231604157816
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: us-west-2
+            cpu/utilization: 33.1537710363092
+          - timestamp: '2025-06-20T05:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-west-1
+            cpu/utilization: 45.17068250482879
+          - timestamp: '2025-06-20T06:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-west-1
+            cpu/utilization: 48.37847786057476
+          - timestamp: '2025-06-20T07:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-west-1
+            cpu/utilization: 58.72285327061727
+          - timestamp: '2025-06-20T08:00:00.000Z'
+            duration: 3600
+            id: my-app
+            kube_node_region: eu-west-1
+            cpu/utilization: 62.45800871209877

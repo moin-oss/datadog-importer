@@ -1,5 +1,5 @@
 name: datadog-importer-example
-description: A sample manifest file demonstrating usage of the datadog-importer plugin
+description: A sample manifest file demonstrating usage of the datadog-importer plugin with templated query
 initialize:
   plugins:
     datadog-importer:
