@@ -22,12 +22,21 @@ Refer to [this documentation](https://docs.datadoghq.com/account_management/api-
 
 ### Config
 
+There are two types of query configuration the datadog-importer plugin supports: a raw query string or a templated query using our available configuration options. The configuration options will be split out into sections for raw query vs templated query.
+
 #### Global
+Templated Query
 * `id-tag`: The key of the tag in Datadog that is used to uniquely identify the unit represented by each input
 * `metrics`: Comma separated list of metrics to fetch for each input. Each item in the list is the metric name in Datadog
 * `output-metric-names`: Comma separated list of metric names to use in the output. Each item in the list corresponds to the item in `metrics` at the same index. This allows users to rename metrics when subsequent stages expect different names than the ones used in Datadog
 * `tags`: Comma separated list of tags to add to each output. Each item is the key of a tag in Datadog.
 * `output-tag-names`: Comma separated list of tag names to use in the output. Each item in the list corresponds to the item in `tags` at the same index. This allows users to rename tags when subsequent stages expect different names than the ones used in Datadog
+
+Raw Query
+* `raw-query`: The raw query string to use to fetch a metric from Datadog.
+* `output-metric-names`: Same as templated query definition, but only one name is allowed.
+* `tags`: Similar to templated query definition, but in the raw query case, the tag names represent tags added via your raw query so your output can include them.
+* `output-tag-names`: Same as templated query definition.
 
 #### Node-level
 There is no node-level configuration.
@@ -35,8 +44,8 @@ There is no node-level configuration.
 ### Inputs
 * `timestamp`: An ISO8601 timestamp indicating the start time of the observation period
 * `duration`: Number of seconds in the observation period. We compute the end time by adding this number to `timestamp`
-* `duration-rollup`: Number of seconds in each output slice. We break each input into `N` outputs where `N = duration / duration-rollup` and the duration of each output is `duration-rollup`
 * `id`: The value of the tag in Datadog that uniquely identifies the unit represented by the input
+* `duration-rollup`: (Only for templated query) Number of seconds in each output slice. We break each input into `N` outputs where `N = duration / duration-rollup` and the duration of each output is `duration-rollup`
 
 ### Outputs
 One of the key features of this plugin is that one input can be expanded into many outputs. 

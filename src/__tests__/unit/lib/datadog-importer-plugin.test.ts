@@ -24,7 +24,7 @@ jest.mock('@datadog/datadog-api-client', () => ({
 }));
 
 describe('DatadogImporter(): ', () => {
-  const createMockApiInstance = (
+  const createMockApiInstanceForTemplatedQuery = (
     metricToSeriesDataMap: Map<string, any> | null
   ) => ({
     queryMetrics: jest.fn(params => {
@@ -41,10 +41,27 @@ describe('DatadogImporter(): ', () => {
     getMetricMetadata: jest.fn().mockResolvedValue({}),
   });
 
-  const config = {
+  const createMockApiInstanceForRawQuery = (seriesData: any) => ({
+    queryMetrics: jest.fn(() => {
+      if (seriesData) {
+        return Promise.resolve({series: seriesData});
+      }
+      return Promise.resolve({});
+    }),
+    getMetricMetadata: jest.fn().mockResolvedValue({}),
+  });
+
+  const templatedQueryConfig = {
     'instance-id-tag': 'app',
     metrics: 'metric1,metric2',
     'output-metric-names': 'outputMetric1,outputMetric2',
+    tags: 'tag1,tag2',
+    'output-tag-names': 'outputTag1,outputTag2',
+  };
+
+  const rawQueryConfig = {
+    'raw-query': 'rawQuery',
+    'output-metric-names': 'outputMetric1',
     tags: 'tag1,tag2',
     'output-tag-names': 'outputTag1,outputTag2',
   };
@@ -73,7 +90,7 @@ describe('DatadogImporter(): ', () => {
 
     it('should throw config exception if output-metric-names contains duplicate values', async () => {
       const invalidConfig = {
-        ...config,
+        ...templatedQueryConfig,
         'output-metric-names': 'outputMetric1,outputMetric1',
       };
       const importer = DatadogImporter(invalidConfig, {}, {});
@@ -82,14 +99,29 @@ describe('DatadogImporter(): ', () => {
       );
     });
 
-    it('should throw config exception if metrics and output-metric-names length are not equal', async () => {
+    it('should throw config exception if metrics and output-metric-names length are not equal for templated query', async () => {
       const invalidConfig = {
-        ...config,
+        ...templatedQueryConfig,
         'output-metric-names': 'outputMetric1',
       };
       const importer = DatadogImporter(invalidConfig, {}, {});
       await expect(importer.execute(validInput)).rejects.toEqual(
-        new ConfigError('Metrics and output-metric-names length must be equal.')
+        new ConfigError(
+          'Metrics and output-metric-names length must be equal for templated query.'
+        )
+      );
+    });
+
+    it('should throw config exception if output-metric-names does not have size of length 1 for raw query', async () => {
+      const invalidConfig = {
+        ...rawQueryConfig,
+        'output-metric-names': 'outputMetric1,outPutMetric2',
+      };
+      const importer = DatadogImporter(invalidConfig, {}, {});
+      await expect(importer.execute(validInput)).rejects.toEqual(
+        new ConfigError(
+          'output-metric-names must contain exactly one item when using raw-query.'
+        )
       );
     });
 
@@ -103,7 +135,7 @@ describe('DatadogImporter(): ', () => {
       const apiInstance = createMockApiInstance();
       (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
 
-      const importer = DatadogImporter(config, {}, {});
+      const importer = DatadogImporter(templatedQueryConfig, {}, {});
       await expect(importer.execute(validInput)).rejects.toEqual(
         new ConfigError('Metric metric1 does not exist')
       );
@@ -111,19 +143,19 @@ describe('DatadogImporter(): ', () => {
 
     it('should throw config exception if output-tag-names contains duplicate values', async () => {
       const invalidConfig = {
-        ...config,
+        ...templatedQueryConfig,
         'output-tag-names': 'outputTag1,outputTag1',
       };
 
       const importer = DatadogImporter(invalidConfig, {}, {});
       await expect(importer.execute(validInput)).rejects.toEqual(
-        new ConfigError('Output-tag-names contains duplicate values.')
+        new ConfigError('output-tag-names contains duplicate values.')
       );
     });
 
     it('should throw config exception if tags and output-tag-names length are not equal', async () => {
       const invalidConfig = {
-        ...config,
+        ...templatedQueryConfig,
         'output-tag-names': 'outputTag1',
       };
 
@@ -133,7 +165,7 @@ describe('DatadogImporter(): ', () => {
       );
     });
 
-    it('should collect multiple metrics and return transformed data', async () => {
+    it('should collect multiple metrics and return transformed data with templated query', async () => {
       const metricToSeriesDataMap: Map<string, any> = new Map();
 
       const seriesDataMetric1 = [
@@ -159,10 +191,12 @@ describe('DatadogImporter(): ', () => {
       metricToSeriesDataMap.set('metric1', seriesDataMetric1);
       metricToSeriesDataMap.set('metric2', seriesDataMetric2);
 
-      const apiInstance = createMockApiInstance(metricToSeriesDataMap);
+      const apiInstance = createMockApiInstanceForTemplatedQuery(
+        metricToSeriesDataMap
+      );
       (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
 
-      const importer = DatadogImporter(config, {}, {});
+      const importer = DatadogImporter(templatedQueryConfig, {}, {});
       const result = await importer.execute(validInput);
 
       expect(result).toEqual([
@@ -187,7 +221,7 @@ describe('DatadogImporter(): ', () => {
       ]);
     });
 
-    it('should collect mulitiple sets of tag values and return transformed data', async () => {
+    it('should collect multiple sets of tag values and return transformed data with templated query', async () => {
       const metricToSeriesDataMap: Map<string, any> = new Map();
       metricToSeriesDataMap.set('metric1', [
         {
@@ -214,10 +248,12 @@ describe('DatadogImporter(): ', () => {
         },
       ]);
 
-      const apiInstance = createMockApiInstance(metricToSeriesDataMap);
+      const apiInstance = createMockApiInstanceForTemplatedQuery(
+        metricToSeriesDataMap
+      );
       (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
 
-      const importer = DatadogImporter(config, {}, {});
+      const importer = DatadogImporter(templatedQueryConfig, {}, {});
       const result = await importer.execute(validInput);
 
       expect(result).toEqual([
@@ -253,6 +289,43 @@ describe('DatadogImporter(): ', () => {
           outputTag1: 'tag1value2',
           outputTag2: 'tag2value2',
           outputMetric1: 0.14,
+        },
+      ]);
+    });
+
+    it('should collect metrics and return transformed data for raw query', async () => {
+      const seriesData = [
+        {
+          tagSet: ['instance-id:i-123456', 'tag1:tag1value', 'tag2:tag2value'],
+          pointlist: [
+            [1717995600000, 1],
+            [1717995610000, 0.7],
+          ],
+        },
+      ];
+
+      const apiInstance = createMockApiInstanceForRawQuery(seriesData);
+      (v1.MetricsApi as jest.Mock).mockImplementation(() => apiInstance);
+
+      const importer = DatadogImporter(rawQueryConfig, {}, {});
+      const result = await importer.execute(validInput);
+
+      expect(result).toEqual([
+        {
+          'instance-id': 'i-123456',
+          timestamp: '2024-06-10T05:00:00.000Z',
+          duration: 10,
+          outputTag1: 'tag1value',
+          outputTag2: 'tag2value',
+          outputMetric1: 1,
+        },
+        {
+          'instance-id': 'i-123456',
+          timestamp: '2024-06-10T05:00:10.000Z',
+          duration: 10,
+          outputTag1: 'tag1value',
+          outputTag2: 'tag2value',
+          outputMetric1: 0.7,
         },
       ]);
     });

@@ -3,7 +3,7 @@ import {client, v1} from '@datadog/datadog-api-client';
 import {ApiException} from '@datadog/datadog-api-client/dist/packages/datadog-api-client-common';
 
 import {PluginFactory} from '@grnsft/if-core/interfaces';
-import {PluginParams, ConfigParams} from '@grnsft/if-core/types';
+import {ConfigParams, PluginParams} from '@grnsft/if-core/types';
 import {ERRORS} from '@grnsft/if-core/utils';
 
 const {ConfigError} = ERRORS;
@@ -14,32 +14,63 @@ export const DatadogImporter = PluginFactory({
       throw new ConfigError('Config is not provided.');
     }
 
-    const metrics: string = config['metrics'];
-    const outputMetricNames: string = config['output-metric-names'];
+    const errors: string[] = [];
+
     const tags: string = config['tags'];
     const outputTagNames: string = config['output-tag-names'];
-
-    const metricList = metrics.split(',');
-    const outputMetricNameList = outputMetricNames.split(',');
     const tagList = tags ? tags.split(',') : [];
     const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
 
-    if (metricList.length !== outputMetricNameList.length) {
-      throw new ConfigError(
-        'Metrics and output-metric-names length must be equal.'
-      );
-    }
-
-    if (hasDuplicates(outputMetricNameList)) {
-      throw new ConfigError('Output-metric-names contains duplicate values.');
-    }
-
+    // tags and output-tag-names validation
     if (tagList.length !== outputTagNamesList.length) {
-      throw new ConfigError('Tags and output-tag-names length must be equal.');
+      errors.push('Tags and output-tag-names length must be equal.');
     }
 
     if (hasDuplicates(outputTagNamesList)) {
-      throw new ConfigError('Output-tag-names contains duplicate values.');
+      errors.push('output-tag-names contains duplicate values.');
+    }
+
+    // Raw query specific config
+    const rawQuery: string = config['raw-query'];
+    if (rawQuery) {
+      // output-metric-names must be provided and must contain exactly one item
+      const outputMetricNames: string = config['output-metric-names'];
+      if (!outputMetricNames) {
+        errors.push('output-metric-names is required when using raw-query.');
+      } else {
+        const outputMetricNameList = outputMetricNames.split(',');
+        if (outputMetricNameList.length !== 1) {
+          errors.push(
+            'output-metric-names must contain exactly one item when using raw-query.'
+          );
+        }
+      }
+    } else {
+      const metrics: string = config['metrics'];
+      const outputMetricNames: string = config['output-metric-names'];
+
+      if (!metrics || !outputMetricNames) {
+        errors.push(
+          'Metrics and output-metric-names are required for templated query.'
+        );
+      } else {
+        const metricList = metrics.split(',');
+        const outputMetricNameList = outputMetricNames.split(',');
+
+        if (metricList.length !== outputMetricNameList.length) {
+          errors.push(
+            'Metrics and output-metric-names length must be equal for templated query.'
+          );
+        }
+
+        if (hasDuplicates(outputMetricNameList)) {
+          errors.push('Output-metric-names contains duplicate values.');
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new ConfigError(errors.join(' '));
     }
 
     return config;
@@ -52,99 +83,88 @@ export const DatadogImporter = PluginFactory({
   implementation: async (inputs: PluginParams[], config: ConfigParams) => {
     let outputs: DatadogImporterParams[] = [];
 
-    const identifierTag: string = config['id-tag'];
-    const metrics: string = config['metrics'];
+    const rawQuery: string = config['raw-query'];
+    const isRawQueryMode = !!rawQuery;
+
     const outputMetricNames: string = config['output-metric-names'];
     const tags: string = config['tags'];
     const outputTagNames: string = config['output-tag-names'];
+    let identifierTag = '';
+    let metrics = '';
 
-    const metricList = metrics.split(',');
-    const outputMetricNameList = outputMetricNames.split(',');
-    const tagList = tags ? tags.split(',') : [];
-    const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
+    if (!isRawQueryMode) {
+      identifierTag = config['id-tag'];
+      metrics = config['metrics'];
+    }
 
     const configuration = client.createConfiguration();
     const apiInstance = new v1.MetricsApi(configuration);
-    await determineIfMetricsExist(apiInstance, metricList);
+
+    // If using the templated query, validate individual metrics
+    if (!isRawQueryMode) {
+      const metricList = metrics.split(',');
+      await determineIfMetricsExist(apiInstance, metricList);
+    }
 
     for await (const input of inputs) {
       const start = new Date(input.timestamp);
       const startUnixTime: number = Math.round(start.getTime() / 1000);
 
-      for (let i = 0; i < metricList.length; i++) {
-        const metric = metricList[i];
-        const outputMetricName = outputMetricNameList[i];
+      if (isRawQueryMode) {
+        // Use raw query mode
+        const queryResult = await executeDatadogQuery(
+          apiInstance,
+          rawQuery,
+          startUnixTime,
+          startUnixTime + input.duration
+        );
 
-        const query = buildQuery(input, metric, identifierTag, tags);
-        const params: v1.MetricsApiQueryMetricsRequest = {
-          from: startUnixTime,
-          to: startUnixTime + input.duration,
-          query: query,
-        };
-
-        const data = (await apiInstance
-          .queryMetrics(params)
-          .then((data: v1.MetricsQueryResponse) => {
-            return data;
-          })
-          .catch((error: any) => {
-            console.error(error);
-          })) as v1.MetricsQueryResponse;
-
-        const series = data.series || [];
-        if (series.length === 0) {
-          console.log('Series not found');
-          continue;
+        if (queryResult) {
+          const processedOutputs = processQueryResult(
+            queryResult,
+            input,
+            [outputMetricNames],
+            tags,
+            outputTagNames
+          );
+          outputs = [...outputs, ...processedOutputs];
         }
+      } else {
+        // Use templated query mode
+        const metricList = metrics.split(',');
+        const outputMetricNameList = outputMetricNames.split(',');
 
-        for (const s of series) {
-          const returnedTags = s.tagSet || [];
+        for (let i = 0; i < metricList.length; i++) {
+          const metric = metricList[i];
+          const outputMetricName = outputMetricNameList[i];
 
-          const pointlist = s.pointlist || [];
-          if (pointlist.length === 0) {
-            console.log('Points not found');
-            continue;
-          }
+          const query = buildQuery(input, metric, identifierTag, tags);
 
-          for (let j = 0; j < pointlist.length; j++) {
-            const point = pointlist[j];
-            let nextTimeStamp;
-            if (j === pointlist.length - 1) {
-              nextTimeStamp =
-                new Date(input.timestamp).getTime() + input.duration * 1000;
-            } else {
-              nextTimeStamp = pointlist[j + 1][0];
-            }
-            const timestamp = point[0];
-            const value = point[1];
+          const queryResult = await executeDatadogQuery(
+            apiInstance,
+            query,
+            startUnixTime,
+            startUnixTime + input.duration
+          );
 
-            let output: DatadogImporterParams;
+          if (queryResult) {
             if (i === 0) {
-              output = {
-                ...input,
-                timestamp: new Date(timestamp).toISOString(),
-                duration: (nextTimeStamp - timestamp) / 1000,
-              };
-              tagList.forEach((tag, k) => {
-                output[outputTagNamesList[k]] = parseTag(tag, returnedTags);
-              });
-            } else {
-              output = outputs[j];
-            }
-
-            if (outputMetricName in output) {
-              console.error(
-                `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
-                  output
-                )}`
+              // First metric creates new outputs
+              const processedOutputs = processQueryResult(
+                queryResult,
+                input,
+                [outputMetricName],
+                tags,
+                outputTagNames
               );
-              break;
+              outputs = [...outputs, ...processedOutputs];
             } else {
-              output[outputMetricName] = value;
-            }
-
-            if (i === 0) {
-              outputs = [...outputs, output];
+              // Subsequent metrics add to existing outputs
+              addMetricToExistingOutputs(
+                queryResult,
+                outputs,
+                outputMetricName
+              );
             }
           }
         }
@@ -154,6 +174,150 @@ export const DatadogImporter = PluginFactory({
     return outputs;
   },
 });
+
+/**
+ * Executes a Datadog query and returns the response
+ */
+const executeDatadogQuery = async (
+  apiInstance: v1.MetricsApi,
+  query: string,
+  from: number,
+  to: number
+): Promise<v1.MetricsQueryResponse | null> => {
+  const params: v1.MetricsApiQueryMetricsRequest = {
+    from,
+    to,
+    query,
+  };
+
+  try {
+    return await apiInstance.queryMetrics(params);
+  } catch (error: any) {
+    console.error(`Error executing query "${query}":`, error);
+    if (error instanceof ApiException) {
+      console.error(
+        `Datadog API error: ${error.code} - ${error.body?.errors?.join(', ') || error.message}`
+      );
+    }
+    return null;
+  }
+};
+
+/**
+ * Processes query result and creates output objects
+ */
+const processQueryResult = (
+  data: v1.MetricsQueryResponse,
+  input: PluginParams,
+  outputMetricNames: string[],
+  tags: string,
+  outputTagNames: string
+): DatadogImporterParams[] => {
+  const outputs: DatadogImporterParams[] = [];
+  const series = data.series || [];
+
+  if (series.length === 0) {
+    console.log('Series not found');
+    return outputs;
+  }
+
+  const tagList = tags ? tags.split(',') : [];
+  const outputTagNamesList = outputTagNames ? outputTagNames.split(',') : [];
+
+  for (const s of series) {
+    const returnedTags = s.tagSet || [];
+    const pointlist = s.pointlist || [];
+
+    if (pointlist.length === 0) {
+      console.log('Points not found');
+      continue;
+    }
+
+    for (let j = 0; j < pointlist.length; j++) {
+      const point = pointlist[j];
+      let nextTimeStamp;
+      if (j === pointlist.length - 1) {
+        nextTimeStamp =
+          new Date(input.timestamp).getTime() + input.duration * 1000;
+      } else {
+        nextTimeStamp = pointlist[j + 1][0];
+      }
+      const timestamp = point[0];
+      const value = point[1];
+
+      const output: DatadogImporterParams = {
+        ...input,
+        timestamp: new Date(timestamp).toISOString(),
+        duration: (nextTimeStamp - timestamp) / 1000,
+      };
+
+      // Add tags if configured
+      tagList.forEach((tag, k) => {
+        if (k < outputTagNamesList.length) {
+          output[outputTagNamesList[k]] = parseTag(tag, returnedTags);
+        }
+      });
+
+      // Add metric value(s)
+      outputMetricNames.forEach(outputMetricName => {
+        if (outputMetricName in output) {
+          console.error(
+            `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
+              output
+            )}`
+          );
+        } else {
+          output[outputMetricName] = value;
+        }
+      });
+
+      outputs.push(output);
+    }
+  }
+
+  return outputs;
+};
+
+/**
+ * Adds metric values to existing output objects (for multi-metric queries)
+ */
+const addMetricToExistingOutputs = (
+  data: v1.MetricsQueryResponse,
+  existingOutputs: DatadogImporterParams[],
+  outputMetricName: string
+): void => {
+  const series = data.series || [];
+
+  if (series.length === 0) {
+    console.log('Series not found');
+    return;
+  }
+
+  for (const s of series) {
+    const pointlist = s.pointlist || [];
+
+    if (pointlist.length === 0) {
+      console.log('Points not found');
+      continue;
+    }
+
+    for (let j = 0; j < pointlist.length && j < existingOutputs.length; j++) {
+      const point = pointlist[j];
+      const value = point[1];
+      const output = existingOutputs[j];
+
+      if (outputMetricName in output) {
+        console.error(
+          `output-metric-name "${outputMetricName}" is set to a reserved key. It cannot be any of the following: ${Object.keys(
+            output
+          )}`
+        );
+      } else {
+        output[outputMetricName] = value;
+      }
+    }
+  }
+};
 
 /**
  * Calls Datadog to determine if metrics exist

@@ -1,0 +1,22 @@
+name: datadog-importer-example
+description: A sample manifest file demonstrating usage of the datadog-importer plugin with raw query
+initialize:
+  plugins:
+    datadog-importer:
+      path: 'https://github.com/moin-oss/datadog-importer'
+      method: DatadogImporter
+      config:
+        raw-query: 'exclude_null((sum:kubernetes.cpu.usage.total{env:prod,project:my-app} by {kube_node_region}.rollup(3600) / 1000000000) / sum:kubernetes.cpu.requests{env:prod,project:my-app} by {kube_node_region}.rollup(3600) * 100)'
+        output-metric-names: 'cpu/utilization'
+        tags: region
+        output-tag-names: 'cloud/region'
+tree:
+  children:
+    my-app:
+      pipeline:
+        observe:
+          - datadog-importer
+      inputs:
+        - timestamp: 2025-06-20T00:00.000Z
+          duration: 14400 # 4 hours
+          id: my-app
