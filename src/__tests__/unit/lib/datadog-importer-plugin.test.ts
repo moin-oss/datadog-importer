@@ -46,7 +46,7 @@ describe('DatadogImporter(): ', () => {
       if (seriesData) {
         return Promise.resolve({series: seriesData});
       }
-      return Promise.resolve({series: seriesData});
+      return Promise.resolve({});
     }),
     getMetricMetadata: jest.fn().mockResolvedValue({}),
   });
