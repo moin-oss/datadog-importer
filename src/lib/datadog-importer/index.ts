@@ -72,16 +72,12 @@ export const DatadogImporter = PluginFactory({
     const apiInstance = new v1.MetricsApi(configuration);
 
     for await (const input of inputs) {
-      console.log('Input: ', JSON.stringify(input));
       const start = new Date(input.timestamp);
-      console.log('Start: ' + start);
       const startUnixTime: number = Math.round(start.getTime() / 1000);
 
       const processedQuery = processRawQuery(rawQuery, input, config);
 
       console.debug('Query with placeholders replaced: ', processedQuery);
-
-      console.log('From: ' + startUnixTime);
 
       const queryResult = await executeDatadogQuery(
         apiInstance,
