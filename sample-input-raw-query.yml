@@ -6,17 +6,17 @@ initialize:
       path: 'https://github.com/moin-oss/datadog-importer'
       method: DatadogImporter
       config:
-        raw-query: 'exclude_null((sum:kubernetes.cpu.usage.total{env:prod,project:my-app} by {kube_node_region}.rollup(3600) / 1000000000) / sum:kubernetes.cpu.requests{env:prod,project:my-app} by {kube_node_region}.rollup(3600) * 100)'
-        output-metric-names: 'cpu/utilization'
-        tags: region
-        output-tag-names: 'cloud/region'
+        raw-query: "exclude_null((rollup(sum:kubernetes.cpu.usage.total{env:prod AND service:<id> AND container_name:main AND (region:us-east-1 OR region:us-east-2 OR region:us-west-2)} by {<aggregation-tags>}.rollup(avg, 3600), 'avg', <duration>) / 1000000000) / rollup(sum:kubernetes.cpu.requests{env:prod AND service:<id> AND container_name:main AND (region:us-east-1 OR region:us-east-2 OR region:us-west-2)} by {<aggregation-tags>}.rollup(avg, 3600), 'avg', <duration>) * 100)"
+        output-metric-name: cpu-utilization
+        aggregation-tags: region,instance-type
+        aggregation-tag-output-names: aws-region,instance-type
 tree:
   children:
     my-app:
       pipeline:
-        observe:
+        compute:
           - datadog-importer
       inputs:
-        - timestamp: 2025-06-20T00:00.000Z
-          duration: 14400 # 4 hours
+        - timestamp: 2025-09-01T00:00:00.000Z
+          duration: 86400
           id: my-app
