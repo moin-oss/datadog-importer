@@ -4,9 +4,9 @@ The `datadog-importer` plugin fetches metrics from Datadog for use in Impact Fra
 
 ## Implementation
 
-The `datadog-importer` plugin fetches metrics from Datadog and formats them for use in Impact Framework calculations. The plugin is highly configurable. It can fetch one or more metrics, based on an arbitrary identifier, adding any number of tags to the output.
+The `datadog-importer` plugin fetches metrics from Datadog using raw query strings and formats them for use in Impact Framework calculations. The plugin supports generic placeholder substitution, allowing dynamic queries based on input values and configuration parameters.
 
-The plugin can also break down each input time window into multiple slices, allowing users to collect fine-grained metrics with minimal input.
+The plugin processes time-series data from Datadog and can output multiple data points based on the query results and time slicing.
 
 ## Usage
 
@@ -22,21 +22,24 @@ Refer to [this documentation](https://docs.datadoghq.com/account_management/api-
 
 ### Config
 
-There are two types of query configuration the datadog-importer plugin supports: a raw query string or a templated query using our available configuration options. The configuration options will be split out into sections for raw query vs templated query.
+The datadog-importer plugin uses raw Datadog query strings with support for generic placeholder substitution. Placeholders in the format `<placeholder_name>` are replaced with corresponding values from input parameters or configuration.
 
-#### Global
-Templated Query
-* `id-tag`: The key of the tag in Datadog that is used to uniquely identify the unit represented by each input
-* `metrics`: Comma separated list of metrics to fetch for each input. Each item in the list is the metric name in Datadog
-* `output-metric-names`: Comma separated list of metric names to use in the output. Each item in the list corresponds to the item in `metrics` at the same index. This allows users to rename metrics when subsequent stages expect different names than the ones used in Datadog
-* `tags`: Comma separated list of tags to add to each output. Each item is the key of a tag in Datadog.
-* `output-tag-names`: Comma separated list of tag names to use in the output. Each item in the list corresponds to the item in `tags` at the same index. This allows users to rename tags when subsequent stages expect different names than the ones used in Datadog
+#### Global Configuration
+* `raw-query`: **Required.** The raw Datadog query string to execute. Supports placeholders in the format `<placeholder_name>` that will be replaced with values from input parameters or config values.
+* `output-metric-name`: **Required.** The name to use for the metric value in the output. Only one metric name is supported per query.
+* `aggregation-tags`: **Optional.** Comma-separated list of tag names from the Datadog query result to include in the output.
+* `aggregation-tag-output-names`: **Optional.** Comma-separated list of output names for the aggregation tags. Must have the same length as `aggregation-tags` if provided.
 
-Raw Query
-* `raw-query`: The raw query string to use to fetch a metric from Datadog.
-* `output-metric-names`: Same as templated query definition, but only one name is allowed.
-* `tags`: Similar to templated query definition, but in the raw query case, the tag names represent tags added via your raw query so your output can include them.
-* `output-tag-names`: Same as templated query definition.
+#### Placeholder Support
+Placeholders in the `raw-query` are replaced in the following order:
+1. Values from input parameters (e.g., `<id>`, `<timestamp>`, `<duration>`)
+2. Values from configuration parameters
+3. If no match is found, the placeholder is left unchanged and a warning is logged
+
+Example placeholders:
+- `<id>`: Replaced with the `id` value from input
+- `<env>`: Replaced with an `env` value from config or input
+- `<custom_tag>`: Replaced with any custom parameter from input or config
 
 #### Node-level
 There is no node-level configuration.
@@ -44,22 +47,21 @@ There is no node-level configuration.
 ### Inputs
 * `timestamp`: An ISO8601 timestamp indicating the start time of the observation period
 * `duration`: Number of seconds in the observation period. We compute the end time by adding this number to `timestamp`
-* `id`: The value of the tag in Datadog that uniquely identifies the unit represented by the input
-* `duration-rollup`: (Only for templated query) Number of seconds in each output slice. We break each input into `N` outputs where `N = duration / duration-rollup` and the duration of each output is `duration-rollup`
+* `id`: A unique identifier for the unit represented by the input (can be used in query placeholders)
+* Any additional parameters can be provided and used as placeholders in the raw query (e.g., `env`, `region`, `application`, etc.)
 
 ### Outputs
-One of the key features of this plugin is that one input can be expanded into many outputs. 
+The plugin processes the Datadog query results and creates output objects based on the time-series data returned. Each data point in the time series becomes a separate output object.
 
-First, the input is expanded by time. The observation window (defined by `timestamp` and `duration`) is split into `N` slices where `N = duration / duration-rollup`.
-
-The input is expanded for each combination of tag values available for the input unit. If there are `M` combinations of tag values, the input is expanded into `M * N` outputs. Each output will have the following fields:
-* `timestamp`: An ISO8601 timestamp indicating the start time of one of the `N` slices of the observation window
-* `duration`: Number of seconds in the slice of the observation window. This will be the value of `duration-rollup` from the input
-* `<TAG 1>`, `<TAG 2>`, `<TAG X>`: Key value pairs specifying one of the `M` combinations of tag values. The key is the name as defined by `output-tag-names` configuration
-* `<METRIC 1>`, `<METRIC 2>` ... `<METRIC Y>`: Key value pairs for each metric specified in `metrics`. The key is the name as defined by `output-metric-names` configuration
+Each output will have the following fields:
+* `timestamp`: An ISO8601 timestamp indicating the start time of the data point
+* `duration`: Number of seconds for the data point duration (calculated from the time series intervals)
+* All original input parameters (preserved from the input)
+* `<output-metric-name>`: The metric value from the query result, using the name specified in the `output-metric-name` configuration
+* `<aggregation-tag-output-names>`: If configured, tag values from the query result using the names specified in `aggregation-tag-output-names`
 
 ### Grouping
-The output of this plugin is a one dimensional array at the level of the input. If your ouput contains of multiple tag combinations, you may want to regroup on the tags. Grouping is a native functinality of the Impact Framework and is [documented here](https://if.greensoftware.foundation/major-concepts/manifest-file/#regrouping-a-manifest-file).
+The output of this plugin is a one dimensional array at the level of the input. If your output contains of multiple tag combinations, you may want to regroup on the tags. Grouping is a native functionality of the Impact Framework and is [documented here](https://if.greensoftware.foundation/major-concepts/manifest-file/#regrouping-a-manifest-file).
 
 ### Examples
 
@@ -67,18 +69,18 @@ The output of this plugin is a one dimensional array at the level of the input. 
 Consider the following input manifest file:
 ```yaml
 name: datadog-importer-example
-description: A sample manifest file demonstrating usage of the datadog-importer plugin
+description: A sample manifest file demonstrating usage of the datadog-importer plugin with raw query
 initialize:
   plugins:
     datadog-importer: 
       path: 'https://github.com/moin-oss/datadog-importer'
       method: DatadogImporter
       config:
-        id-tag: application
-        metrics: runtime.cpu.util,runtime.mem.requests
-        output-metric-names: cpu/utilization,memory/available/GB
-        tags: region,instance-type
-        output-tag-names: cloud/region,cloud/instance-type
+        raw-query: 'exclude_null((sum:kubernetes.cpu.usage.total{env:<env>,project:<id>} by {kube_node_region}.rollup(3600) / 1000000000) / sum:kubernetes.cpu.requests{env:<env>,project:<id>} by {kube_node_region}.rollup(3600) * 100)'
+        output-metric-name: 'cpu/utilization'
+        aggregation-tags: 'kube_node_region'
+        aggregation-tag-output-names: 'cloud/region'
+        env: 'prod'
 tree:
   children:
     my-app:
@@ -87,19 +89,16 @@ tree:
           - datadog-importer
       inputs:
         - timestamp: 2024-05-21T06:00
-          duration: 1800
-          duration-rollup: 900
+          duration: 14400
           id: my-app
 ```
-In this scenario, we are collecting the CPU utilization and memory requests of `my-app` over the 30 minutes starting at 6:00 AM UTC on May 21, 2024. The plugin is configured to generate two 15 minute slices for each combination of cloud region and instance type. 
+In this scenario, we are collecting the CPU utilization of `my-app` over 4 hours starting at 6:00 AM UTC on May 21, 2024. The raw query uses placeholders:
+- `<env>` is replaced with `prod` from the config
+- `<id>` is replaced with `my-app` from the input
 
-Assume CPU utilization is a metric in Datadog named `runtime.cpu.util` and memory requests is a metric in Datadog named `runtime.mem.requests`. Assume that `my-app` is deployed onto instances of type `a1-large` and `b2-small` in cloud regions `us-east-1` and `us-west-2`. Therefore, both metrics have 4 time series, one for each combination of cloud region and instance type, tagged as follows:
-* `application:my-app`, `region:us-east-1`, `instance-type:a1-large`
-* `application:my-app`, `region:us-east-1`, `instance-type:b2-small`
-* `application:my-app`, `region:us-west-2`, `instance-type:a1-large`
-* `application:my-app`, `region:us-west-2`, `instance-type:b2-small`
+The query calculates CPU utilization as a percentage by dividing CPU usage by CPU requests, grouped by Kubernetes node region.
 
-Then, the output will be (comments added for emphasis):
+Assuming the Datadog query returns time-series data with multiple data points across different regions, the output will be (comments added for emphasis):
 ```yaml
 tree:
   children:
@@ -108,74 +107,28 @@ tree:
         observe:
           - datadog-importer
       outputs:
-        # Time series: `region:us-east-1`, `instance-type:a1-large`
-        - timestamp: 2024-05-21T06:00
-          duration: 900
-          duration-rollup: 900
+        # Data point 1: us-east-1 region
+        - timestamp: 2024-05-21T06:00:00.000Z
+          duration: 3600
           id: my-app
-          cpu/utilization: 34
-          memory/available/GB: 2
+          cpu/utilization: 34.5
           cloud/region: us-east-1
-          cloud/instance-type: a1-large
-        - timestamp: 2024-05-21T06:15
-          duration: 900
-          duration-rollup: 900
+        - timestamp: 2024-05-21T07:00:00.000Z
+          duration: 3600
           id: my-app
-          cpu/utilization: 23
-          memory/available/GB: 2
+          cpu/utilization: 28.2
           cloud/region: us-east-1
-          cloud/instance-type: a1-large
-        # Time series: `region:us-east-1`, `instance-type:b2-small`
-        - timestamp: 2024-05-21T06:00
-          duration: 900
-          duration-rollup: 900
+        # Data point 2: us-west-2 region
+        - timestamp: 2024-05-21T06:00:00.000Z
+          duration: 3600
           id: my-app
-          cpu/utilization: 76
-          memory/available/GB: 1
-          cloud/region: us-east-1
-          cloud/instance-type: b2-small
-        - timestamp: 2024-05-21T06:15
-          duration: 900
-          duration-rollup: 900
-          id: my-app
-          cpu/utilization: 87
-          memory/available/GB: 1
-          cloud/region: us-east-1
-          cloud/instance-type: b2-small
-        # Time series: `region:us-west-2`, `instance-type:a1-large`
-        - timestamp: 2024-05-21T06:00
-          duration: 900
-          duration-rollup: 900
-          id: my-app
-          cpu/utilization: 25
-          memory/available/GB: 4
+          cpu/utilization: 42.1
           cloud/region: us-west-2
-          cloud/instance-type: a1-large
-        - timestamp: 2024-05-21T06:15
-          duration: 900
-          duration-rollup: 900
+        - timestamp: 2024-05-21T07:00:00.000Z
+          duration: 3600
           id: my-app
-          cpu/utilization: 12
-          memory/available/GB: 4
+          cpu/utilization: 38.7
           cloud/region: us-west-2
-          cloud/instance-type: a1-large
-        # Time series: `region:us-west-2`, `instance-type:b2-small`
-        - timestamp: 2024-05-21T06:00
-          duration: 900
-          duration-rollup: 900
-          id: my-app
-          cpu/utilization: 43
-          memory/available/GB: 1
-          cloud/region: us-west-2
-          cloud/instance-type: b2-small
-        - timestamp: 2024-05-21T06:15
-          duration: 900
-          duration-rollup: 900
-          id: my-app
-          cpu/utilization: 54
-          memory/available/GB: 1
-          cloud/region: us-west-2
-          cloud/instance-type: b2-small
 ```
 
 
@@ -186,19 +139,18 @@ To run the `datadog-importer` in typescript, an instance of `DatadogImporterPlug
 ```typescript
 async function runPlugin() {
   const config = {
-    'id-tag': 'application',
-    metrics: 'runtime.cpu.util,runtime.mem.requests',
-    'output-metric-names': 'cpu/utilization,memory/available/GB',
-    tags: 'region,instance-type',
-    'output-tag-names': 'cloud/region,cloud/instance-type'
+    'raw-query': 'exclude_null((sum:kubernetes.cpu.usage.total{env:<env>,project:<id>} by {kube_node_region}.rollup(3600) / 1000000000) / sum:kubernetes.cpu.requests{env:<env>,project:<id>} by {kube_node_region}.rollup(3600) * 100)',
+    'output-metric-name': 'cpu/utilization',
+    'aggregation-tags': 'kube_node_region',
+    'aggregation-tag-output-names': 'cloud/region',
+    'env': 'prod'
   }
   const datadogImporter = await new DatadogImporter(config);
   const usage = await datadogImporter.execute([
     {
-      timestamp: '2021-01-01T00:00:00Z',
-      duration: 1800,
-      'duration-rollup': 900,
-      'id': 'my-app'
+      timestamp: '2024-05-21T06:00:00Z',
+      duration: 14400,
+      id: 'my-app'
     },
   ]);
 
@@ -213,7 +165,7 @@ runPlugin();
 ### Testing model integration using local links
 For using the locally developed model, please follow these steps: 
 
-1. On the root level of a locally developed model run `npm link`, which will create global package. It uses `package.json` file's `name` field as a package name. Additionally name can be checked by running `npm ls -g --depth=0 --link=true`.
+1. On the root level of a locally developed model run `npm link`, which will create global package. It uses `package.json` file's `name` field as a package name. Additionally, name can be checked by running `npm ls -g --depth=0 --link=true`.
 2. Use the linked model in impl by specifying `name`, `method`, `path` in initialize models section. 
 
 ```yaml
