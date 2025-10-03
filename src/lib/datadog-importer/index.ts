@@ -208,11 +208,16 @@ const processQueryResult = (
       }
       const timestamp = point[0];
       const value = point[1];
+      const duration = (nextTimeStamp - timestamp) / 1000;
+
+      if (duration === 0) {
+        continue;
+      }
 
       const output: DatadogImporterParams = {
         ...input,
         timestamp: new Date(timestamp).toISOString(),
-        duration: (nextTimeStamp - timestamp) / 1000,
+        duration: duration,
       };
 
       // Add tags if configured
